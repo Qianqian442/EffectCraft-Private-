@@ -337,19 +337,20 @@ public final class MainActivity extends Activity {
         JSONArray imported = WindowsSoftwareStore.importedPackages(inbox);
         JSONArray installed = WindowsSoftwareStore.installedApps(this);
         ArrayList<JSONObject> entries = new ArrayList<>();
+        ArrayList<Boolean> installedEntries = new ArrayList<>();
         ArrayList<String> labels = new ArrayList<>();
         for (int i = 0; i < imported.length(); i++) {
             JSONObject item = imported.optJSONObject(i);
             if (item == null) continue;
-            item.put("_catalogType", "import");
             entries.add(item);
+            installedEntries.add(false);
             labels.add("待安装 · " + item.optString("originalName", "未知软件包"));
         }
         for (int i = 0; i < installed.length(); i++) {
             JSONObject item = installed.optJSONObject(i);
             if (item == null) continue;
-            item.put("_catalogType", "installed");
             entries.add(item);
+            installedEntries.add(true);
             labels.add("已添加 · " + item.optString("name", "Windows 软件"));
         }
         if (entries.isEmpty()) {
@@ -360,10 +361,11 @@ public final class MainActivity extends Activity {
         }
         String[] rows = labels.toArray(new String[0]);
         JSONObject[] data = entries.toArray(new JSONObject[0]);
+        Boolean[] installedFlags = installedEntries.toArray(new Boolean[0]);
         new AlertDialog.Builder(this).setTitle("我的电脑软件")
                 .setItems(rows, (d, which) -> {
                     JSONObject item = data[which];
-                    if ("installed".equals(item.optString("_catalogType"))) {
+                    if (installedFlags[which]) {
                         launchInstalledWindowsApp(item);
                     } else {
                         showPackageActions(item);
@@ -426,14 +428,22 @@ public final class MainActivity extends Activity {
                 });
                 return;
             }
-            File staged = WindowsSoftwareStore.copyIntoContainer(this, containerId, source, id);
-            Intent runtime = new Intent();
-            runtime.setClassName(this, "com.winlator.XServerDisplayActivity");
-            runtime.putExtra("container_id", containerId);
-            runtime.putExtra("exec_path", staged.getAbsolutePath());
-            startActivity(runtime);
-            if (softwareStatus != null) softwareStatus.setText("已在 Windows 兼容环境中启动：" + name
-                    + "。完成安装程序后，返回这里扫描已安装软件并创建手机桌面快捷图标。");
+            io.execute(() -> {
+                try {
+                    File staged = WindowsSoftwareStore.copyIntoContainer(this, containerId, source, id);
+                    ui.post(() -> {
+                        Intent runtime = new Intent();
+                        runtime.setClassName(this, "com.winlator.XServerDisplayActivity");
+                        runtime.putExtra("container_id", containerId);
+                        runtime.putExtra("exec_path", staged.getAbsolutePath());
+                        startActivity(runtime);
+                        if (softwareStatus != null) softwareStatus.setText("已在 Windows 兼容环境中启动：" + name
+                                + "。完成安装程序后，返回这里扫描已安装软件并创建手机桌面快捷图标。");
+                    });
+                } catch (Exception error) {
+                    ui.post(() -> toast("复制安装包到 Windows 容器失败：" + error.getMessage()));
+                }
+            });
         } catch (Exception error) {
             toast("启动 Windows 软件失败：" + error.getMessage());
         }
