@@ -49,3 +49,24 @@ Set GitHub Actions variable `FUTURE_TECH_API_BASE` to the same HTTPS Worker URL 
 - The user-supplied icon image is not available as a materialized file in the active repository workspace yet; the app icon remains a replaceable placeholder until that image is added.
 
 A normal Android app cannot silently implant a system-signed framework into protected Android system partitions. Future Technology uses an app-private compatibility container that can be enabled/disabled within Android's sandbox.
+
+## 未来科技 (Future Technology)
+
+The repository now contains separate Android app modules for:
+
+- `android/main-app` — 未来科技 user APK.
+- `android/admin-app` — 未来科技管理版 APK.
+- `android/shared` — HTTPS API client, Android Keystore token vault, and avatar input helpers.
+- `server/cloudflare` — selected Cloudflare Workers + D1 + R2 account backend starter.
+
+The main APK and admin APK have a successful debug build and package/signature verification in [GitHub Actions run #44519271800](https://github.com/Qianqian442/EffectCraft-Private-/actions/runs/44519271800). The outputs are debug-signed review candidates, not production releases. The account server has not been deployed, and no real account login or ban/allowlist action has been tested against a live server.
+
+**The Windows compatibility runtime is not yet integrated into either APK.** The current one-tap screen is a UI shell and device-info view; it does not yet start Windows software. Do not describe the current APKs as working Windows compatibility builds.
+
+### First application integration target: Ae
+
+After the Android Windows runtime has passed its independent device tests, Ae/EffectCraft is the first and only application integration target. The acceptance plan is in [docs/ae-first-integration-gate.md](docs/ae-first-integration-gate.md). It tests real desktop After Effects projects and plug-ins in Ae before expanding to any other Windows software.
+
+### Account security
+
+The management APK requires an online login using the latest server password after reinstall. Password rotation revokes server-side old sessions. Administrator passwords and signing keys must be configured through private deployment secrets, never committed to this public repository or embedded in APKs.
