@@ -116,6 +116,7 @@ async function auth(request, env) {
     .bind(payload.sid, payload.sub).first();
   if (!row || row.session_revoked || Date.parse(row.session_expiry) <= Date.now()) throw new ApiError(401, "登录会话已失效");
   if (row.status === "banned") throw new ApiError(403, "账号已被封禁");
+  if (row.status !== "active") throw new ApiError(403, "账号尚未获准使用");
   const whitelist = (await getSetting(env.DB, "whitelist_mode", "false")) === "true";
   if (whitelist && !row.is_whitelisted) throw new ApiError(403, "账号尚未加入管理员白名单");
   return { account: row, sid: payload.sid };
@@ -145,6 +146,7 @@ async function login(body, request, env) {
   if (await hashPassword(body.password, account.password_salt, env) !== account.password_hash)
     throw new ApiError(401, "账号或密码不正确");
   if (account.status === "banned") throw new ApiError(403, "账号已被封禁");
+  if (account.status !== "active") throw new ApiError(403, "账号尚未获准使用");
   const whitelist = (await getSetting(env.DB, "whitelist_mode", "false")) === "true";
   if (whitelist && !account.is_whitelisted) throw new ApiError(403, "账号尚未加入管理员白名单");
   await addDevice(env.DB, account.id, body.deviceId);
@@ -194,14 +196,11 @@ async function changePassword(session, body, env) {
   const pw = await newPasswordHash(body.newPassword, env), t = now();
   await env.DB.prepare("UPDATE accounts SET password_salt=?,password_hash=?,must_change_password=0,updated_at=? WHERE id=?")
     .bind(pw.salt,pw.hash,t,session.account.id).run();
-  await env.DB.prepare("UPDATE sessions SET revoked_at=? WHERE account_id=? AND id<>? AND revoked_at IS NULL")
-    .bind(t,session.account.id,session.sid).run();
-  const refresh = b64url(randomBytes(48)), refreshHash = await sha256(refresh);
-  const expires = new Date(Date.now() + Math.max(3600,Number(env.REFRESH_TOKEN_TTL_SECONDS || REFRESH_TTL))*1000).toISOString();
-  await env.DB.prepare("UPDATE sessions SET refresh_hash=?,expires_at=?,last_seen_at=? WHERE id=?")
-    .bind(refreshHash,expires,t,session.sid).run();
-  return { accessToken:await signAccess({id:session.account.id,role:session.account.role},session.sid,env),
-    refreshToken:refresh,mustChangePassword:false };
+  // Revoke every old session, including the session used for this password change.
+  // A fresh install must authenticate again with the latest password.
+  await env.DB.prepare("UPDATE sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL")
+    .bind(t,session.account.id).run();
+  return { passwordChanged:true, mustChangePassword:false };
 }
 async function refresh(body, env) {
   if (!body.refreshToken) throw new ApiError(400, "缺少刷新令牌");
