@@ -60,13 +60,13 @@ def inspect(path: Path) -> dict[str, Any]:
             return result
         with path.open("rb") as f:
             f.seek(pe_offset)
-            sig_and_coff = f.read(24)
+            sig_and_coff = f.read(26)
         if len(sig_and_coff) < 6 or sig_and_coff[:4] != b"PE\0\0":
             result["notes"].append("MZ header present, but PE signature was not verified.")
             return result
         machine = struct.unpack_from("<H", sig_and_coff, 4)[0]
         result["architecture"] = PE_MACHINES.get(machine, f"unknown (0x{machine:04x})")
-        result["binary_subtype"] = "PE32" if len(sig_and_coff) >= 24 and struct.unpack_from("<H", sig_and_coff, 24-2)[0] == 0x10B else "PE/COFF"
+        result["binary_subtype"] = "PE32" if len(sig_and_coff) >= 26 and struct.unpack_from("<H", sig_and_coff, 24)[0] == 0x10B else "PE/COFF"
         result["notes"].append("PE identifies a Windows executable/library format; CPU match does not supply Win32 or Adobe host APIs.")
         if result["extension_hint"] == ".aex":
             result["notes"].append("The .aex extension is commonly used for desktop After Effects plug-ins; verify the exact host SDK and dependencies.")
