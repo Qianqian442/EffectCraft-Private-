@@ -94,7 +94,7 @@ main_text = main_java.read_text(encoding="utf-8")
 old = "            if (!requestAppPermissions()) RootFSInstaller.installIfNeeded(this);"
 if old not in main_text:
     raise SystemExit("Winlator MainActivity permission/bootstrap call changed; review before adapting")
-main_text = main_text.replace(old, "            RootFSInstaller.installIfNeeded(this);\\n            ensureFutureTechnologyDefaultContainer();")
+main_text = main_text.replace(old, "            RootFSInstaller.installIfNeeded(this);\n            ensureFutureTechnologyDefaultContainer();")
 
 imports = """import android.os.Handler;
 import android.os.Looper;
@@ -106,7 +106,7 @@ import com.winlator.container.GraphicsDrivers;
 import com.winlator.core.WineThemeManager;
 import com.winlator.xenvironment.RootFS;
 """
-main_text = main_text.replace("import android.os.Bundle;\\n", "import android.os.Bundle;\\n" + imports)
+main_text = main_text.replace("import android.os.Bundle;\n", "import android.os.Bundle;\n" + imports)
 
 bootstrap_method = """
     /**
@@ -161,7 +161,7 @@ bootstrap_method = """
     }
 
 """
-marker="    @Override\\n    protected void attachBaseContext(Context newBase) {"
+marker="    @Override\n    protected void attachBaseContext(Context newBase) {"
 if marker not in main_text:
     raise SystemExit("Winlator MainActivity insertion marker not found")
 main_text = main_text.replace(marker, bootstrap_method + marker)
