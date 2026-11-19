@@ -27,6 +27,8 @@ gradle = gradle_path.read_text(encoding="utf-8")
 gradle = gradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.library'")
 gradle = gradle.replace("        applicationId 'com.winlator'\n", "")
 gradle = gradle.replace("        targetSdkVersion 28\n", "")
+gradle = gradle.replace("        versionCode 33\\n", "")
+gradle = gradle.replace('        versionName "11.2"\\n', "")
 # Library modules cannot own the app's release/minification policy.
 start = gradle.find("    buildTypes {")
 if start >= 0:
