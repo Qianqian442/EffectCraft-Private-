@@ -194,7 +194,33 @@ def _convert_one_resource_switch(source, switch):
         raise SystemExit("Invalid default-only resource switch adaptation")
     lines.append("}")
     replacement = "\n".join(lines)
-    return source[:brace_open] + replacement + source[brace_close + 1:], True
+    return source[:start] + replacement + source[brace_close + 1:], True
+
+def _self_test_resource_switch_conversion():
+    sample = """class Example {
+    void onClick(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.first:
+                first();
+                break;
+            case R.id.second:
+                second();
+                break;
+            default:
+                fallback();
+                break;
+        }
+    }
+}"""
+    converted = convert_resource_switches(sample)
+    if "switch (item.getItemId())" in converted:
+        raise SystemExit("Resource switch conversion left the original switch statement")
+    if "if (__futureTechResourceSwitch == (R.id.first))" not in converted:
+        raise SystemExit("Resource switch conversion did not produce the expected if branch")
+    if "else if (__futureTechResourceSwitch == (R.id.second))" not in converted:
+        raise SystemExit("Resource switch conversion did not produce the expected else-if branch")
+    if "fallback();" not in converted or converted.count("{") != converted.count("}"):
+        raise SystemExit("Resource switch conversion produced malformed block structure")
 
 def convert_resource_switches(source):
     # Work from innermost/rightmost switch outward so nested UI dispatchers
@@ -214,6 +240,8 @@ def convert_resource_switches(source):
         if not changed:
             return source
 
+
+_self_test_resource_switch_conversion()
 
 ROOT = Path(__file__).resolve().parents[1]
 # The Winlator parent repo's "app" submodule is the winlator-app repository;
