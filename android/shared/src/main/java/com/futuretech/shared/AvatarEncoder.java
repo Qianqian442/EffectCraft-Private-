@@ -45,7 +45,7 @@ public final class AvatarEncoder {
         Bitmap resized = Bitmap.createScaledBitmap(bitmap,
                 Math.max(1, (int)(bitmap.getWidth() * scale)),
                 Math.max(1, (int)(bitmap.getHeight() * scale)), true);
-        bitmap.recycle();
+        if (resized != bitmap) bitmap.recycle();
         ByteArrayOutputStream encoded = new ByteArrayOutputStream();
         int quality = 82;
         do {
