@@ -2,7 +2,7 @@
 
 This repository contains two separate Android applications and the account server for the Future Technology Windows-compatibility project.
 
-- **未来科技** — user APK, Ae-style QQ/WeChat registration, photo-picker avatar, device capability report, QQ/file-share import entry, and app-private Windows compatibility runtime control surface.
+- **未来科技** — user APK, Ae-style QQ/WeChat registration, photo-picker avatar, CPU/GPU/Vulkan/storage capability report, QQ `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` import intake, private file inbox, and app-private Windows compatibility runtime control surface.
 - **未来科技管理版** — administrator APK, online login, forced password change, account overview, whitelist, bans/unbans, and audit interface.
 
 ## Security and password lifecycle
@@ -44,7 +44,7 @@ Set GitHub Actions variable `FUTURE_TECH_API_BASE` to the same HTTPS Worker URL 
 
 ## Current limitations
 
-- The user/admin Android project scaffolds and API source are present, but Cloudflare D1/Worker deployment has not been performed.
+- QQ/Android file sharing is now copied into an app-private inbox with a SHA-256 digest and basic PE/ELF/WASM/AE-extension classification. This is file intake only: it does not yet parse `.aep` projects, resolve desktop media, load `.aex` plug-ins, or execute `.exe` files.\n- The user/admin Android project scaffolds and API source are present, but Cloudflare D1/Worker deployment has not been performed.
 - Wine, Box64/Box86, the Linux root filesystem, graphics backends (Mesa/Turnip, DXVK/VKD3D), and a functional Windows process/session manager have not yet been integrated into the APK. The runtime switch currently reports this honestly and will not execute unverified binaries.
 - The user-supplied icon image is not available as a materialized file in the active repository workspace yet; the app icon remains a replaceable placeholder until that image is added.
 
@@ -59,7 +59,7 @@ The repository now contains separate Android app modules for:
 - `android/shared` — HTTPS API client, Android Keystore token vault, and avatar input helpers.
 - `server/cloudflare` — selected Cloudflare Workers + D1 + R2 account backend starter.
 
-The main APK and admin APK have a successful debug build and package/signature verification in [GitHub Actions run #44519271800](https://github.com/Qianqian442/EffectCraft-Private-/actions/runs/44519271800). The outputs are debug-signed review candidates, not production releases. The account server has not been deployed, and no real account login or ban/allowlist action has been tested against a live server.
+The latest main APK and admin APK have a successful debug build, package/signature verification, and QQ file-import intake compilation in [GitHub Actions run #44522729009](https://github.com/Qianqian442/EffectCraft-Private-/actions/runs/44522729009). The outputs are debug-signed review candidates, not production releases. Static import-safety checks are also added to the build workflow. The account server has not been deployed, and no real account login or ban/allowlist action has been tested against a live server.
 
 **The Windows compatibility runtime is not yet integrated into either APK.** The current one-tap screen is a UI shell and device-info view; it does not yet start Windows software. Do not describe the current APKs as working Windows compatibility builds.
 
