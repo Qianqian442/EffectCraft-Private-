@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "1.0",
+  "snapshotDate": "2026-11-19",
+  "policy": {
+    "vendorAllSourcesImmediately": false,
+    "pinEveryImportedRevision": true,
+    "preserveUpstreamNotices": true,
+    "auditCopyleftBeforeRedistribution": true,
+    "runWindowsProgramsOutOfProcess": true,
+    "doNotBypassAndroidSandboxOrAeServerVerification": true
+  },
+  "sources": [
+    {
+      "id": "winlator-app",
+      "repo": "brunodev85/winlator-app",
+      "commit": "ecd5ab2980de79eb955621cef26a3b4672013875",
+      "license": "LGPL-2.1",
+      "role": "Android container front-end and UI integration reference",
+      "tier": "android_reference",
+      "status": "reviewed_candidate",
+      "notes": "Use selected app-private container lifecycle/display/input code as a reference; do not copy the whole UI into Ae without review."
+    },
+    {
+      "id": "winlator",
+      "repo": "brunodev85/winlator",
+      "commit": "30aafbdb9eea47b92669201621e03cd2cf04540d",
+      "license": "LGPL-2.1",
+      "role": "Android Wine + Box86/Box64 + PRoot + graphics integration reference",
+      "tier": "android_reference",
+      "status": "reviewed_candidate",
+      "notes": "Best starting architecture for an Android Windows-userland container; upstream README reports device-dependent compatibility and Vulkan/GPU requirements."
+    },
+    {
+      "id": "wine",
+      "repo": "wine-mirror/wine",
+      "commit": "e2aa6cd75ae60acd90ff384feee171ce994f0f6d",
+      "license": "LGPL-2.1-or-later",
+      "role": "Win32/Win64 API compatibility layer",
+      "tier": "core_runtime_candidate",
+      "status": "candidate_not_built",
+      "notes": "Build/port only required architectures and components; requires runtime DLLs and application-specific compatibility work."
+    },
+    {
+      "id": "box64",
+      "repo": "ptitSeb/box64",
+      "commit": "5d627690a3ddee1173bbfeeab066361ba969b158",
+      "license": "MIT",
+      "role": "x86-64 user-mode instruction translation to ARM64",
+      "tier": "core_runtime_candidate",
+      "status": "candidate_not_built",
+      "notes": "Use with a suitable Linux rootfs/Wine integration. Native Termux mode is documented as experimental and does not run ordinary Linux binaries."
+    },
+    {
+      "id": "box86",
+      "repo": "ptitSeb/box86",
+      "commit": "bb716a2a6576cc06da811bf55e31e2f6f03b7596",
+      "license": "MIT",
+      "role": "32-bit x86 user-mode translation",
+      "tier": "secondary_runtime_candidate",
+      "status": "candidate_not_built",
+      "notes": "Legacy 32-bit path; validate ABI and rootfs dependencies separately."
+    },
+    {
+      "id": "proot",
+      "repo": "proot-me/proot",
+      "commit": "25dc6a3134891f98a79f57ce1c2c1b23ff15cad1",
+      "license": "GPL-2.0",
+      "role": "unprivileged rootfs/process/filesystem view",
+      "tier": "core_runtime_candidate",
+      "status": "license_review_required",
+      "notes": "Does not replace the Android kernel or remove app sandbox restrictions. GPL distribution obligations must be reviewed."
+    },
+    {
+      "id": "dxvk",
+      "repo": "doitsujin/dxvk",
+      "commit": "d9af36496fef7a5b24f0b916bfd578b9f875d9b1",
+      "license": "Zlib",
+      "role": "Direct3D 8/9/10/11 translation to Vulkan",
+      "tier": "optional_graphics_candidate",
+      "status": "candidate_not_built",
+      "notes": "Only where Android Vulkan driver and required extensions are supported."
+    },
+    {
+      "id": "vkd3d-proton",
+      "repo": "HansKristian-Work/vkd3d-proton",
+      "commit": "d6659d8b9061b7a87128e75127e451710f8603b2",
+      "license": "LGPL-2.1",
+      "role": "Direct3D 12 translation to Vulkan",
+      "tier": "optional_graphics_candidate",
+      "status": "candidate_not_built",
+      "notes": "Proton-focused project; Android integration and driver features require proof."
+    },
+    {
+      "id": "openfx",
+      "repo": "AcademySoftwareFoundation/openfx",
+      "commit": "4249fe1b590a7e65caf4b1e4693b6b53220703f5",
+      "license": "BSD-3-Clause",
+      "role": "Open visual-effects plug-in API",
+      "tier": "portable_plugin_candidate",
+      "status": "host_adapter_required",
+      "notes": "Requires an Ae OpenFX host/adapter. Not binary-compatible with Adobe .aex."
+    },
+    {
+      "id": "wasmtime",
+      "repo": "bytecodealliance/wasmtime",
+      "commit": "3ce2209872ccf1ea115914a81e020aef66a10c51",
+      "license": "Apache-2.0",
+      "role": "WebAssembly runtime",
+      "tier": "portable_plugin_candidate",
+      "status": "android_validation_required",
+      "notes": "Android is listed as supported but less well tested than Windows/macOS/Linux."
+    },
+    {
+      "id": "wasm3",
+      "repo": "wasm3/wasm3",
+      "commit": "28ecb9af6d2040e474a70f7cb7f43666740141fb",
+      "license": "MIT",
+      "role": "small embeddable WebAssembly interpreter",
+      "tier": "portable_plugin_candidate",
+      "status": "benchmark_alternative",
+      "notes": "Evaluate as a compact alternative to Wasmtime; do not bundle both by default."
+    },
+    {
+      "id": "hangover",
+      "repo": "AndreRH/hangover",
+      "commit": "56e385b7ff490edd281b288f420677093563560b",
+      "license": "LGPL-2.1",
+      "role": "ARM64 Linux/Wine x86 Windows application emulation architecture",
+      "tier": "research_only",
+      "status": "not_android_drop_in",
+      "notes": "Useful alternative architecture; upstream target is AArch64 Linux, not a ready Android app runtime."
+    },
+    {
+      "id": "fex",
+      "repo": "FEX-Emu/FEX",
+      "commit": "be66e03d65217f53a7a2e5af46473cc9a79ce3f8",
+      "license": "MIT",
+      "role": "x86/x86-64 user-mode emulator for ARM64 Linux",
+      "tier": "research_only",
+      "status": "not_android_target",
+      "notes": "Official FAQ says the full FEX environment does not target Android due syscall, filesystem and GPU access differences. FEXCore library reuse is a separate experiment."
+    }
+  ]
+}
