@@ -18,6 +18,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.futuretech.shared.ApiClient;
+import com.futuretech.shared.AvatarEncoder;
 import com.futuretech.shared.TokenVault;
 
 import org.json.JSONObject;
@@ -247,8 +248,13 @@ public final class MainActivity extends Activity {
                         body.put("displayName", nickname.getText().toString().trim());
                         body.put("password", p);
                         body.put("deviceId", deviceId());
-                    } catch (Exception ignored) {}
-                    callAuth("/auth/register", body, "注册完成");
+                        String avatarBase64 = AvatarEncoder.readBase64(getContentResolver(), selectedAvatar);
+                        if (avatarBase64 != null) body.put("avatarBase64", avatarBase64);
+                    } catch (Exception avatarError) {
+                        toast("头像读取失败：" + avatarError.getMessage());
+                        return;
+                    }
+                    callAuth("/auth/register", body, "注册申请已提交");
                 }).show();
     }
 
