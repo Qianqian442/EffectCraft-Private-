@@ -21,7 +21,7 @@ This repository contains two separate Android applications and the account serve
 - `Future-Technology.apk`
 - `Future-Technology-Admin.apk`
 
-The workflow checks the Windows software installer intake, AE project separation, manual registration/login and dynamic multi-GB memory policy, then verifies APK integrity, package IDs, APK signatures and uploads both as a GitHub Actions artifact. These are development candidates until the account server is deployed and the Windows runtime has been integrated and device-tested.
+The APK workflow is manual-only and requires an explicit release-readiness confirmation. Do not build or distribute an APK until the full Windows runtime, computer-software marketplace, automatic installed-app discovery, desktop icons/shortcuts, account backend, and real-device tests all pass. These are development candidates until the account server is deployed and the Windows runtime has been integrated and device-tested.
 
 The account Worker and D1 schema are checked by `.github/workflows/validate-future-technology-server.yml`.
 
