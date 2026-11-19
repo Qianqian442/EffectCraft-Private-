@@ -77,6 +77,13 @@ for token in (
 runtime_prep = RUNTIME_PREP.read_text(encoding="utf-8")
 for token in ("default_container_id", "msiexec.exe", "exec_args", "未来科技默认容器"):
     require(token in runtime_prep, f"Winlator host adaptation missing: {token}")
+for token in ("public static String DIRECTORY_DOWNLOADS;", "public static String INTERNAL_STORAGE;",
+              "AppUtils.INTERNAL_STORAGE = privateStorage.getAbsolutePath()",
+              "AppUtils.DIRECTORY_DOWNLOADS = privateDownloads.getAbsolutePath()"):
+    require(token in runtime_prep, f"Winlator private-storage mapping missing: {token}")
+for token in ("showPreviousRuntimeCrash()", "getHistoricalProcessExitReasons", "getTraceInputStream", "复制记录"):
+    require(token in main, f"on-device runtime crash diagnostics missing: {token}")
+
 worker = WORKER.read_text(encoding="utf-8")
 schema = SCHEMA.read_text(encoding="utf-8")
 require('/api/v1/marketplace/catalog' in worker and 'FROM software_catalog WHERE is_active=1' in worker,
