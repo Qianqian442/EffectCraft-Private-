@@ -44,7 +44,7 @@ require("file" in view_schemes, "file:// VIEW imports must remain supported")
 
 main = ACTIVITY.read_text(encoding="utf-8")
 for token in (
-    "Intent.ACTION_VIEW",
+    "intent.getData()",
     "Intent.ACTION_SEND",
     "Intent.ACTION_SEND_MULTIPLE",
     "Intent.EXTRA_STREAM",
