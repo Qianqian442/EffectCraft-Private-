@@ -99,3 +99,25 @@ At import time, classify each effect as `native`, `portable`, `rebuild_required`
 - M4: Android ARM64 native plug-in adapter and capability negotiation.
 - M5: only if technically and legally viable, prototype isolated Windows plug-in emulation.
 - M6: integrate into production only after independent regression tests and explicit review.
+
+
+## Future Technology: Windows software installation and desktop
+
+Future Technology is a Windows desktop-software runtime, not an After Effects project importer. The user flow is:
+
+1. Choose a Windows installer (.exe or .msi) or a supported portable-software archive (.zip) from Android storage or a trusted share source.
+2. Copy it into the app-private software installer queue. Do not execute the file as an Android process and do not silently install it as an Android APK.
+3. Install the software inside a dedicated Windows/Wine container/prefix when the Wine + Box64/Box86 + rootfs and graphics runtime has passed device verification.
+4. Discover installed applications from the container's registered launchers/shortcuts and show their names and icons in Future Technology's in-app Windows desktop / software library.
+5. Allow the user to create or remove a desktop shortcut for an installed application. A shortcut points to the installed executable and launch configuration, not to the installer file. Tapping it starts the app in the same isolated container. A pinned Android home-screen shortcut may be offered separately and only after explicit user approval.
+6. Keep uninstall, app data and compatibility settings scoped to that container. Never modify Android system partitions or require root.
+
+After Effects project formats (.aep/.aepx) and AE plug-in formats (.aex) are not Windows software installers. They must be handled by Ae's project/plugin workflows, not by Future Technology's software installer queue.
+
+### Memory policy
+
+Do not impose a fixed 1.0/1.12/1.5 GB runtime cap. Provide automatic, performance-priority and system-priority policies. In automatic mode, derive runtime allocations from current available RAM and keep Android/system headroom; the actual process may use multiple gigabytes on devices where memory is available. Treat Android low-memory pressure as a dynamic signal, not a reason to permanently cap the process at 1.5 GB. On smaller devices, warn before installation/launch if the live memory state is insufficient rather than silently reducing functionality.
+
+### Current implementation boundary
+
+The current APK can safely store supported installer packages in a private pending-install queue, but the real Wine/Box64/Box86 runtime is not yet integrated. Installation, installed-app discovery, software desktop icons, shortcut creation and actual Windows application launching are not yet functional.
