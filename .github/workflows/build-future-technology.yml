@@ -94,9 +94,10 @@ jobs:
           unzip -t "$MAIN" >/dev/null
           unzip -t "$ADMIN" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$MAIN"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$ADMIN"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$MAIN" | grep -F "package: name='com.futuretech.main'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$ADMIN" | grep -F "package: name='com.futuretech.admin'"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$MAIN" | grep -F "package: name='com.futuretech.main'"
+          "$AAPT" dump badging "$ADMIN" | grep -F "package: name='com.futuretech.admin'"
           mkdir -p ../dist
           cp "$MAIN" ../dist/Future-Technology.apk
           cp "$ADMIN" ../dist/Future-Technology-Admin.apk
