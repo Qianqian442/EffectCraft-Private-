@@ -1,0 +1,48 @@
+name: Verify Future Technology marketplace icon assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/main-app/build.gradle"
+      - "android/main-app/src/main/icon/computer_marketplace_icon.webp.b64"
+      - "tools/verify_future_tech_import.py"
+      - ".github/workflows/verify-future-tech-marketplace-assets.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-assets:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Future Technology regression checks
+        run: python tools/verify_future_tech_import.py
+
+      - name: Decode and validate the marketplace icon asset
+        run: |
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+
+          source = Path("android/main-app/src/main/icon/computer_marketplace_icon.webp.b64")
+          encoded = "".join(source.read_text(encoding="ascii").split())
+          data = base64.b64decode(encoded, validate=True)
+          if len(data) < 1000 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+              raise SystemExit("Marketplace icon is not a valid WebP asset")
+          print(f"Marketplace icon verified: {len(data)} bytes")
+          PY
+
+      - name: Confirm Gradle materialization task is wired to preBuild
+        run: |
+          grep -q 'materializeComputerMarketplaceIcon' android/main-app/build.gradle
+          grep -q 'dependsOn("materializeFutureTechIcon", "materializeComputerMarketplaceIcon")' android/main-app/build.gradle
