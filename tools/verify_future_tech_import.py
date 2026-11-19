@@ -12,6 +12,8 @@ STORE = ROOT / "android/main-app/src/main/java/com/futuretech/main/PrivateImport
 ICON = ROOT / "android/main-app/src/main/icon/future_tech_icon.jpg.b64"
 MARKETPLACE_ICON = ROOT / "android/main-app/src/main/icon/computer_marketplace_icon.webp.b64"
 GRADLE = ROOT / "android/main-app/build.gradle"
+WINSTORE = ROOT / "android/main-app/src/main/java/com/futuretech/main/WindowsSoftwareStore.java"
+RUNTIME_PREP = ROOT / "tools/prepare_winlator_runtime.py"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 def require(condition: bool, message: str) -> None:
     if not condition:
@@ -53,8 +55,28 @@ marketplace = MARKETPLACE_ACTIVITY.read_text(encoding="utf-8")
 for token in ("电脑应用商城", "/marketplace/catalog", "DownloadManager", "setDestinationInExternalFilesDir",
               "SHA-256", "expectedBytes", "STATUS_SUCCESSFUL", "computer_marketplace_icon"):
     require(token in marketplace, f"marketplace/download verification missing: {token}")
-require("当前 Windows 兼容安装引擎尚未完成集成" in marketplace,
-        "download must not be falsely described as a Windows installation")
+require("WindowsSoftwareStore.importVerifiedMarketplaceFile" in marketplace,
+        "verified marketplace downloads must be copied into the private installer inbox")
+require("open_software_library" in marketplace,
+        "marketplace must offer navigation to the imported software catalogue")
+require("当前 Windows 兼容安装引擎尚未完成集成" not in marketplace,
+        "marketplace must not retain stale runtime-not-integrated wording")
+main_runtime_tokens = (
+    "com.winlator.XServerDisplayActivity", "ShortcutManager", "requestPinShortcut",
+    "scanInstalledApps", "exec_path", "已安装 Windows 软件", "ACTION_LAUNCH_WINDOWS_APP"
+)
+for token in main_runtime_tokens:
+    require(token in main, f"Windows runtime host integration missing: {token}")
+software_store = WINSTORE.read_text(encoding="utf-8")
+for token in (
+    "copyIntoContainer", "extractZipIntoContainer", "scanInstalledExecutables",
+    "importVerifiedMarketplaceFile", "MAX_ARCHIVE_EXPANDED_BYTES",
+    "MAX_ARCHIVE_ENTRIES", "目录穿越路径", "installed_apps.json"
+):
+    require(token in software_store, f"Windows software store feature missing: {token}")
+runtime_prep = RUNTIME_PREP.read_text(encoding="utf-8")
+for token in ("default_container_id", "msiexec.exe", "exec_args", "未来科技默认容器"):
+    require(token in runtime_prep, f"Winlator host adaptation missing: {token}")
 worker = WORKER.read_text(encoding="utf-8")
 schema = SCHEMA.read_text(encoding="utf-8")
 require('/api/v1/marketplace/catalog' in worker and 'FROM software_catalog WHERE is_active=1' in worker,
@@ -68,4 +90,4 @@ require("materializeComputerMarketplaceIcon" in gradle and "computer_marketplace
         "Gradle must decode the computer marketplace icon before compilation")
 require(ICON.is_file() and len(ICON.read_text(encoding="ascii").strip()) > 5000, "Future Technology main icon asset is missing")
 require("materializeFutureTechIcon" in gradle and "Base64.getDecoder().decode" in gradle, "Gradle must decode the supplied logo before compilation")
-print("Future Technology checks passed: Windows installer inbox, Ae project separation, registration-first UI, manual login, dynamic multi-GB memory policy, safe package copying, marketplace catalogue API and on-device checksum-verified downloads.")
+print("Future Technology checks passed: private installer inbox, Wine container bridge, EXE/MSI launch, safe ZIP extraction, installed-app discovery, Android launcher shortcuts, verified marketplace handoff, Ae project separation, account UI and device-private storage.")
