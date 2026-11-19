@@ -184,7 +184,7 @@ public final class PrivateImportStore {
         if (".msi".equals(ext)) return "Windows MSI 安装包候选（未安装）";
         if (".wasm".equals(ext) || wasm) return wasm ? "WebAssembly 模块（尚需插件 ABI 验证）" : "WASM 扩展名（魔数未验证）";
         if (elf) return "ELF 原生二进制（需识别 ABI 与系统依赖）";
-        if (zip) return ".zip / 项目包候选（仅保存，未解压）";
+        if (zip) return ".zip / Windows 便携软件包候选（仅保存，等待兼容环境解压）";
         if (lower.endsWith(".xml")) return "XML 文件（需检查具体工程格式）";
         return "普通文件 / 未识别格式（已安全保存）";
     }
