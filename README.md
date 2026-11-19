@@ -23,6 +23,8 @@ This repository contains two separate Android applications and the account serve
 
 The APK workflow is manual-only and requires an explicit release-readiness confirmation. Do not build or distribute an APK until the full Windows runtime, computer-software marketplace, automatic installed-app discovery, desktop icons/shortcuts, account backend, and real-device tests all pass. These are development candidates until the account server is deployed and the Windows runtime has been integrated and device-tested.
 
+The public `GET /api/v1/marketplace/catalog` route reads active listings from the D1 `software_catalog` table. The Android marketplace displays searchable listings and downloads eligible redistribution-authorized packages directly to phone storage; it checks the exact file size and SHA-256 before marking a package verified. The Worker returns catalogue metadata and does not proxy installer bytes. No software listings are activated by default; an operator must validate and activate entries.
+
 The account Worker and D1 schema are checked by `.github/workflows/validate-future-technology-server.yml`.
 
 ## Account-server deployment
