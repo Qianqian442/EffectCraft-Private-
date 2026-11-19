@@ -415,13 +415,20 @@ public final class ComputerMarketplaceActivity extends Activity {
                 String digest = sha256(file);
                 if (!digest.equalsIgnoreCase(metadata.getString("sha256")))
                     throw new SecurityException("SHA-256 校验失败，文件可能损坏或被替换");
+                String packageName = metadata.optString("name", file.getName()) + extensionFor(file.getName());
+                WindowsSoftwareStore.importVerifiedMarketplaceFile(this, file, packageName, digest);
                 getSharedPreferences("marketplace_downloads", MODE_PRIVATE).edit()
                         .putString("verified." + id, metadata.toString()).remove("download." + id).apply();
                 ui.post(() -> new AlertDialog.Builder(this).setTitle("软件包下载并校验完成")
                         .setMessage(metadata.optString("name") + "\n大小：" + formatBytes(file.length())
-                                + "\nSHA-256：" + digest + "\n\n文件已保存在手机：" + file.getAbsolutePath()
-                                + "\n\n当前 Windows 兼容安装引擎尚未完成集成，因此这里只确认下载和完整性，不会假装已经安装软件。")
-                        .setPositiveButton("确定", null).show());
+                                + "\nSHA-256：" + digest
+                                + "\n\n已复制到未来科技的私有安装包列表。可直接打开“我的电脑软件 / 安装包”启动安装程序。")
+                        .setPositiveButton("前往我的电脑软件", (dialog, which) -> {
+                            Intent main = new Intent(this, MainActivity.class);
+                            main.putExtra("open_software_library", true);
+                            main.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                            startActivity(main);
+                        }).setNegativeButton("稍后", null).show());
             } catch (Exception error) {
                 // A failed integrity check must never leave a package marked as verified.
                 //noinspection ResultOfMethodCallIgnored
