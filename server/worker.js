@@ -274,7 +274,9 @@ async function auditEntries(env) {
 
 async function route(request, env) {
   const url = new URL(request.url);
-  const path = url.pathname.replace(/\/+$/, "") || "/";
+  let path = url.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/api/v1") path = "/";
+  else if (path.startsWith("/api/v1/")) path = path.slice("/api/v1".length);
   const method = request.method.toUpperCase();
   if (method === "OPTIONS") return new Response(null, { status:204, headers:{
     "access-control-allow-origin":"*", "access-control-allow-methods":"GET,POST,DELETE,OPTIONS",
