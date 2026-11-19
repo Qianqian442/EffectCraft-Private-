@@ -49,4 +49,9 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
-dependencies { implementation project(':shared') }
+dependencies {
+    implementation project(':shared')
+    if (rootProject.findProject(":winlator-runtime") != null) {
+        implementation project(":winlator-runtime")
+    }
+}
