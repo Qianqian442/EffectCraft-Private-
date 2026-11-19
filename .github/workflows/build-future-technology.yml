@@ -6,6 +6,7 @@ on:
     paths:
       - 'android/**'
       - 'server/cloudflare/**'
+      - 'tools/verify_future_tech_import.py'
       - '.github/workflows/build-future-technology.yml'
   workflow_dispatch:
 
