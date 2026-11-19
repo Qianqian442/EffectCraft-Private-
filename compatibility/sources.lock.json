@@ -13,12 +13,12 @@
     {
       "id": "winlator-app",
       "repo": "brunodev85/winlator-app",
-      "commit": "ecd5ab2980de79eb955621cef26a3b4672013875",
+      "commit": "a030f552f452158a2db64fdb32b490fa19c0b48d",
       "license": "LGPL-2.1",
       "role": "Android container front-end and UI integration reference",
       "tier": "android_reference",
       "status": "reviewed_candidate",
-      "notes": "Use selected app-private container lifecycle/display/input code as a reference; do not copy the whole UI into Ae without review."
+      "notes": "Pinned to the app submodule SHA referenced by brunodev85/winlator commit 30aafbdb9eea47b92669201621e03cd2cf04540d (Winlator 11.2). Reuse selected app-private container lifecycle, process, display and input code only after refactoring it into a library/service boundary. Preserve LGPL-2.1 notices and source/relinking obligations; do not graft the Winlator launcher UI into Future Technology."
     },
     {
       "id": "winlator",
@@ -28,7 +28,7 @@
       "role": "Android Wine + Box86/Box64 + PRoot + graphics integration reference",
       "tier": "android_reference",
       "status": "reviewed_candidate",
-      "notes": "Best starting architecture for an Android Windows-userland container; upstream README reports device-dependent compatibility and Vulkan/GPU requirements."
+      "notes": "Pinned to the upstream Winlator 11.2 source commit 30aafbdb9eea47b92669201621e03cd2cf04540d. Contains separate app/gladio/vortek submodules plus installable components; integrate source and dependencies deliberately, preserve LGPL-2.1 and all third-party licenses. Device/GPU support must be validated on real Android hardware."
     },
     {
       "id": "wine",
