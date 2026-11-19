@@ -165,16 +165,18 @@ public final class MainActivity extends Activity {
     }
 
     private void toggleRuntime() {
-        java.io.File manifest = new java.io.File(getFilesDir(), "runtime/runtime-manifest.json");
-        if (!manifest.isFile()) {
-            new AlertDialog.Builder(this).setTitle("兼容组件尚未安装")
-                    .setMessage("当前版本先完成了应用界面和设备识别。Wine、Box64/Box86、Linux 运行环境及图形组件仍需完成移植、签名和设备测试，因此暂时不能启动 Windows 程序。")
-                    .setPositiveButton("知道了", null).show();
-            return;
+        // Winlator is merged as a non-exported library activity in this build.
+        // Its first launch initializes the private Wine/Box64 root filesystem;
+        // later launches open the container and shortcut manager.
+        try {
+            Intent runtime = new Intent();
+            runtime.setClassName(this, "com.winlator.MainActivity");
+            startActivity(runtime);
+        } catch (Exception error) {
+            new AlertDialog.Builder(this).setTitle("兼容环境尚未构建")
+                    .setMessage("当前安装包没有包含完整的 Wine/Box64 运行模块。请使用经过运行模块编译和验证的版本。")
+                    .setPositiveButton("确定", null).show();
         }
-        new AlertDialog.Builder(this).setTitle("运行组件需要验证")
-                .setMessage("已发现运行环境清单，但尚未验证组件签名、完整性和设备兼容性。为避免执行损坏或不可信代码，本版本不会启动它。")
-                .setPositiveButton("确定", null).show();
     }
 
     private void updateDeviceInfo() {
