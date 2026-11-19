@@ -19,9 +19,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile inspector and test scripts
-        run: python -m py_compile tools/inspect_plugin.py tests/test_inspect_plugin.py
+        run: python -m py_compile tools/inspect_plugin.py tools/validate_sources.py tests/test_inspect_plugin.py tests/test_sources_lock.py
       - name: Run binary-header tests
         run: python -m unittest discover -s tests -v
+      - name: Validate pinned source registry and licensing policy
+        run: python tools/validate_sources.py
       - name: Validate project IR schema JSON
         run: python -m json.tool schemas/project-ir.schema.json > /dev/null
       - name: Ensure inspector is read-only and never marks input executable
