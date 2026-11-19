@@ -1,0 +1,12 @@
+name = "future-tech-account-api"
+main = "worker.js"
+compatibility_date = "2026-11-19"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "future-tech-accounts"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[vars]
+ADMIN_BOOTSTRAP_USERNAME = "admin"
