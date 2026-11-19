@@ -322,7 +322,8 @@ public final class ComputerMarketplaceActivity extends Activity {
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             request.setAllowedOverMetered(true);
             request.setAllowedOverRoaming(false);
-            request.setDestinationUri(Uri.fromFile(target));
+            request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS,
+                    "FutureTechnology/" + target.getName());
             long id = manager.enqueue(request);
             JSONObject metadata = new JSONObject();
             metadata.put("id", item.id);
