@@ -251,8 +251,19 @@ public final class ComputerMarketplaceActivity extends Activity {
         card.addView(description);
 
         TextView notes = new TextView(this);
+        StringBuilder requirements = new StringBuilder();
+        if (item.minRamMb > 0) requirements.append("最低内存 ").append(item.minRamMb).append(" MB");
+        if (item.minAndroidApi > 0) {
+            if (requirements.length() > 0) requirements.append(" · ");
+            requirements.append("Android API ").append(item.minAndroidApi).append("+");
+        }
+        if (!item.gpuNotes.isEmpty()) {
+            if (requirements.length() > 0) requirements.append("\\n");
+            requirements.append("显卡要求：").append(item.gpuNotes);
+        }
         notes.setText("兼容性：" + (item.compatibility.isEmpty() ? "尚未验证" : item.compatibility)
-                + " · 许可：" + (item.license.isEmpty() ? "待核实" : item.license));
+                + " · 许可：" + (item.license.isEmpty() ? "待核实" : item.license)
+                + (requirements.length() == 0 ? "" : "\\n" + requirements));
         notes.setTextColor(0xFF7A6040);
         notes.setTextSize(11);
         notes.setPadding(0, dp(6), 0, dp(8));
@@ -480,8 +491,9 @@ public final class ComputerMarketplaceActivity extends Activity {
 
     private static final class CatalogItem {
         final String id, category, name, publisher, description, version, architecture,
-                packageType, sourceUrl, downloadUrl, sha256, license, compatibility;
-        final long expectedBytes;
+                packageType, sourceUrl, downloadUrl, sha256, license, compatibility, gpuNotes, iconUrl;
+        final long expectedBytes, minRamMb;
+        final int minAndroidApi;
         final boolean redistributionAllowed;
 
         private CatalogItem(JSONObject o) {
@@ -498,7 +510,11 @@ public final class ComputerMarketplaceActivity extends Activity {
             sha256 = o.optString("sha256", "");
             license = o.optString("license", "待核实");
             compatibility = o.optString("compatibility", "尚未验证");
+            gpuNotes = o.optString("gpuNotes", "");
+            iconUrl = o.optString("iconUrl", "");
             expectedBytes = o.optLong("expectedBytes", 0L);
+            minRamMb = Math.max(0L, o.optLong("minRamMb", 0L));
+            minAndroidApi = Math.max(0, o.optInt("minAndroidApi", 0));
             redistributionAllowed = o.optInt("redistributionAllowed", 0) == 1
                     || o.optBoolean("redistributionAllowed", false);
         }
