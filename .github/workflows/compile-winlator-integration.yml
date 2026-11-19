@@ -98,5 +98,33 @@ jobs:
           set -euo pipefail
           unzip -l winlator-runtime/build/outputs/aar/winlator-runtime-debug.aar | grep -E 'jni/arm64-v8a/.*[.]so' | head -n 30
 
-      - name: Do not publish premature installers
-        run: echo "Build only; final APKs remain gated on installer bridge, app discovery, Android shortcuts and device validation."
+      - name: Verify installable ARM64 APK contents
+        working-directory: android
+        run: |
+          set -euo pipefail
+          unzip -l main-app/build/outputs/apk/debug/main-app-debug.apk | grep -E 'lib/arm64-v8a/.*[.]so' | head -n 30
+          mkdir -p ../artifacts
+          cp main-app/build/outputs/apk/debug/main-app-debug.apk ../artifacts/Future-Technology-ARM64-debug.apk
+          cp admin-app/build/outputs/apk/debug/admin-app-debug.apk ../artifacts/Future-Technology-Admin-ARM64-debug.apk
+          cd ../artifacts
+          sha256sum *.apk > SHA256SUMS.txt
+          cat > BUILD-NOTES.txt <<'EOF'
+          Future Technology ARM64 debug review build.
+          Includes the integrated Winlator runtime module and the Future Technology Windows installer bridge.
+          This is a debug-signed review APK, not a production release signature.
+          Android device installation, first-boot rootfs initialization, graphics/audio compatibility,
+          x86 and x86_64 Windows application compatibility, and Android launcher shortcut behavior
+          still require real-device validation.
+          Source branch: runtime-integration
+          EOF
+
+      - name: Upload installable ARM64 review APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Future-Technology-Android-APKs-review
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Record remaining real-device validation scope
+        run: echo "Installable ARM64 review APKs are uploaded; this is not a production-signed or device-validated release."
