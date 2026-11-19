@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "1.0",
+  "apiBase": "/api/v1",
+  "auth": {
+    "register": {
+      "method": "POST",
+      "path": "/auth/register",
+      "required": [
+        "password"
+      ],
+      "oneOf": [
+        [
+          "qqId"
+        ],
+        [
+          "wechatId"
+        ]
+      ],
+      "optional": [
+        "qqId",
+        "wechatId",
+        "avatarUploadId",
+        "displayName"
+      ],
+      "response": [
+        "accountId",
+        "status",
+        "accessToken",
+        "refreshToken",
+        "expiresAt"
+      ]
+    },
+    "login": {
+      "method": "POST",
+      "path": "/auth/login",
+      "required": [
+        "account",
+        "password"
+      ],
+      "response": [
+        "accessToken",
+        "refreshToken",
+        "expiresAt",
+        "mustChangePassword"
+      ]
+    },
+    "refresh": {
+      "method": "POST",
+      "path": "/auth/refresh",
+      "required": [
+        "refreshToken"
+      ],
+      "notes": "Rotate refresh token on every use."
+    },
+    "logout": {
+      "method": "POST",
+      "path": "/auth/logout",
+      "required": [
+        "refreshToken"
+      ],
+      "notes": "Revoke the session."
+    },
+    "changePassword": {
+      "method": "POST",
+      "path": "/auth/password/change",
+      "required": [
+        "currentPassword",
+        "newPassword"
+      ],
+      "notes": "Bootstrap login must complete this before admin APIs become available."
+    }
+  },
+  "user": {
+    "profile": {
+      "method": "GET",
+      "path": "/account/me"
+    },
+    "uploadAvatar": {
+      "method": "POST",
+      "path": "/account/avatar"
+    },
+    "runtimeManifest": {
+      "method": "GET",
+      "path": "/runtime/manifest"
+    },
+    "runtimeSession": {
+      "method": "POST",
+      "path": "/runtime/session"
+    }
+  },
+  "admin": {
+    "overview": {
+      "method": "GET",
+      "path": "/admin/overview"
+    },
+    "accounts": {
+      "method": "GET",
+      "path": "/admin/accounts"
+    },
+    "allowlistAdd": {
+      "method": "POST",
+      "path": "/admin/allowlist",
+      "required": [
+        "accountId",
+        "reason"
+      ]
+    },
+    "allowlistRemove": {
+      "method": "DELETE",
+      "path": "/admin/allowlist/{accountId}",
+      "required": [
+        "reason"
+      ]
+    },
+    "ban": {
+      "method": "POST",
+      "path": "/admin/bans",
+      "required": [
+        "accountId",
+        "reason"
+      ]
+    },
+    "unban": {
+      "method": "DELETE",
+      "path": "/admin/bans/{accountId}",
+      "required": [
+        "reason"
+      ]
+    },
+    "revokeSessions": {
+      "method": "POST",
+      "path": "/admin/accounts/{accountId}/revoke-sessions",
+      "required": [
+        "reason"
+      ]
+    },
+    "audit": {
+      "method": "GET",
+      "path": "/admin/audit"
+    }
+  },
+  "security": {
+    "transport": "HTTPS only",
+    "adminAuthorization": "server-side role check for every request",
+    "passwordStorage": "Argon2id or reviewed memory-hard password hashing; never plaintext",
+    "tokens": "short-lived access token plus rotated refresh token",
+    "audit": "append-only privileged action log",
+    "defaultPolicy": "deny",
+    "adminBootstrap": "one-time secret provisioned outside source and build logs; forced first-login rotation",
+    "serverVerification": "mandatory; not removable by client or runtime",
+    "windowsRuntime": "untrusted programs isolated from account API and admin token storage"
+  }
+}
