@@ -38,15 +38,19 @@ public final class MainActivity extends Activity {
     private TextView runtimeStatus;
     private Button toggleButton;
     private Uri selectedAvatar;
-    private TextView importStatus;
+    private TextView softwareStatus;
+    private TextView accountStatus;
+    private Button logoutButton;
+    private boolean authenticatedThisLaunch = false;
     private static final int PICK_AVATAR = 1002;
-    private static final int PICK_FILE = 1001;
+    private static final int PICK_SOFTWARE = 1001;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         ui = new android.os.Handler(getMainLooper());
         buildUi();
         updateDeviceInfo();
+        updateSessionControls();
         handleIncomingIntent(getIntent());
     }
 
@@ -102,16 +106,28 @@ public final class MainActivity extends Activity {
         deviceInfo.setPadding(0, dp(22), 0, dp(16));
         content.addView(deviceInfo);
 
-        content.addView(button("导入电脑工程 / Windows 程序", v -> chooseFile()));
-        importStatus = new TextView(this);
-        importStatus.setText("导入文件会先复制到应用私有目录并计算 SHA-256；不会自动执行 EXE 或插件。");
-        importStatus.setTextSize(12);
-        importStatus.setTextColor(0xFF66758C);
-        importStatus.setPadding(0, dp(8), 0, dp(8));
-        content.addView(importStatus);
-        content.addView(button("查看导入记录", v -> showImportedFiles()));
-        content.addView(button("注册 / 登录账号", v -> showAccountMenu()));
-        content.addView(button("退出登录", v -> logout()));
+        content.addView(button("添加电脑软件安装包", v -> chooseSoftwarePackage()));
+        softwareStatus = new TextView(this);
+        softwareStatus.setText("添加 Windows .exe / .msi 安装包或 .zip 便携软件包。安装成功后，软件会显示在未来科技电脑桌面，可创建快捷图标。");
+        softwareStatus.setTextSize(12);
+        softwareStatus.setTextColor(0xFF66758C);
+        softwareStatus.setPadding(0, dp(8), 0, dp(8));
+        content.addView(softwareStatus);
+        content.addView(button("我的电脑软件 / 安装包", v -> showSoftwareLibrary()));
+        content.addView(button("运行内存设置", v -> showRuntimeMemorySettings()));
+
+        accountStatus = new TextView(this);
+        accountStatus.setText("账号状态：未登录（首次使用请先注册）");
+        accountStatus.setTextSize(14);
+        accountStatus.setTextColor(0xFF53627A);
+        accountStatus.setGravity(Gravity.CENTER);
+        accountStatus.setPadding(0, dp(18), 0, dp(8));
+        content.addView(accountStatus);
+        content.addView(button("注册账号（首次使用）", v -> showRegister()));
+        content.addView(button("已有账号？登录", v -> showLogin()));
+        logoutButton = button("退出当前会话", v -> logout());
+        logoutButton.setVisibility(View.GONE);
+        content.addView(logoutButton);
 
         TextView foot = new TextView(this);
         foot.setText("兼容环境只在本应用私有目录内运行。关闭后停止本应用启动的 Windows 兼容进程，不修改 Android 系统分区。");
@@ -162,6 +178,8 @@ public final class MainActivity extends Activity {
         ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(memory);
         info.append("\n物理内存：").append(memory.totalMem / (1024L * 1024L)).append(" MB");
         info.append("\n可用内存：").append(memory.availMem / (1024L * 1024L)).append(" MB");
+        info.append("\n运行内存策略：").append(getMemoryPolicyLabel())
+                .append("（不设 1.5 GB 固定上限，按设备余量动态使用，可按需达到数 GB）");
         info.append("\n应用可用存储：").append(getFilesDir().getUsableSpace() / (1024L * 1024L)).append(" MB");
 
         String vulkanVersion = "未声明";
@@ -184,12 +202,12 @@ public final class MainActivity extends Activity {
         deviceInfo.setText(info);
     }
 
-    private void chooseFile() {
+    private void chooseSoftwarePackage() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        startActivityForResult(intent, PICK_FILE);
+        startActivityForResult(intent, PICK_SOFTWARE);
     }
 
     private void handleIncomingIntent(Intent intent) {
@@ -197,13 +215,11 @@ public final class MainActivity extends Activity {
         java.util.ArrayList<Uri> uris = new java.util.ArrayList<>();
         java.util.HashSet<String> seen = new java.util.HashSet<>();
         addIncomingUri(uris, seen, intent.getData());
-
         ClipData clip = intent.getClipData();
         if (clip != null) {
             for (int i = 0; i < clip.getItemCount(); i++)
                 addIncomingUri(uris, seen, clip.getItemAt(i).getUri());
         }
-
         String action = intent.getAction();
         if (Intent.ACTION_SEND.equals(action)) {
             Uri stream = null;
@@ -215,7 +231,7 @@ public final class MainActivity extends Activity {
             }
             addIncomingUri(uris, seen, stream);
         } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
-            java.util.ArrayList<Uri> streams = null;
+            java.util.ArrayList<Uri> streams;
             if (Build.VERSION.SDK_INT >= 33)
                 streams = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class);
             else {
@@ -224,64 +240,108 @@ public final class MainActivity extends Activity {
             }
             if (streams != null) for (Uri stream : streams) addIncomingUri(uris, seen, stream);
         }
-
-        for (Uri uri : uris) confirmIncomingFile(uri);
+        for (Uri uri : uris) confirmIncomingSoftware(uri);
     }
 
     private void addIncomingUri(java.util.ArrayList<Uri> uris, java.util.HashSet<String> seen, Uri uri) {
-        if (uri == null) return;
-        String key = uri.toString();
-        if (seen.add(key)) uris.add(uri);
+        if (uri != null && seen.add(uri.toString())) uris.add(uri);
     }
 
-    private void confirmIncomingFile(Uri uri) {
+    private boolean isAeProjectOrPlugin(String name) {
+        String lower = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".aep") || lower.endsWith(".aepx") || lower.endsWith(".aex");
+    }
+
+    private boolean isWindowsSoftwarePackage(String name) {
+        String lower = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".exe") || lower.endsWith(".msi") || lower.endsWith(".zip");
+    }
+
+    private void confirmIncomingSoftware(Uri uri) {
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
         catch (Exception ignored) { /* Share providers may grant temporary access only; copy immediately. */ }
         final String incomingName = displayName(uri);
-        if (importStatus != null) importStatus.setText("正在安全导入：" + incomingName);
+        if (isAeProjectOrPlugin(incomingName)) {
+            toast("这是 AE 工程或插件，请在 Ae 中导入；未来科技只负责运行 Windows 电脑软件。");
+            return;
+        }
+        if (!isWindowsSoftwarePackage(incomingName)) {
+            toast("这不是支持的电脑软件包。请选择 Windows .exe / .msi 安装包或 .zip 便携软件包。");
+            return;
+        }
+        if (softwareStatus != null) softwareStatus.setText("正在安全添加软件包：" + incomingName);
         io.execute(() -> {
             try {
-                File inbox = new File(getFilesDir(), "imports");
+                File inbox = new File(getFilesDir(), "software/installers");
                 PrivateImportStore.ImportedFile imported =
                         PrivateImportStore.copyFromUri(getContentResolver(), uri, inbox);
                 ui.post(() -> {
-                    String result = imported.summary()
-                            + "\n\n已保存到未来科技的应用私有目录。文件尚未被解析、安装或执行。";
-                    if (importStatus != null) importStatus.setText("最近导入：" + imported.originalName + " · " + imported.kind);
-                    new AlertDialog.Builder(this).setTitle("文件已保存")
-                            .setMessage(result)
-                            .setPositiveButton("查看导入记录", (d, w) -> showImportedFiles())
+                    if (softwareStatus != null)
+                        softwareStatus.setText("已添加安装包：" + imported.originalName + "（尚未安装）");
+                    new AlertDialog.Builder(this).setTitle("电脑软件安装包已添加")
+                            .setMessage(imported.summary()
+                                    + "\n\n当前 APK 还没有集成 Wine / Box64 / Box86 完整运行引擎，因此这里只完成安全保存，尚未安装或运行软件。"
+                                    + "运行引擎集成后，下一步会在兼容环境中安装，并把已安装软件加入电脑桌面。")
+                            .setPositiveButton("查看软件包", (d, w) -> showSoftwareLibrary())
                             .setNegativeButton("完成", null).show();
                 });
             } catch (Exception error) {
                 ui.post(() -> {
-                    if (importStatus != null) importStatus.setText("导入失败：" + incomingName);
-                    toast("导入失败：" + (error.getMessage() == null ? "无法读取文件" : error.getMessage()));
+                    if (softwareStatus != null) softwareStatus.setText("添加失败：" + incomingName);
+                    toast("添加软件包失败：" + (error.getMessage() == null ? "无法读取文件" : error.getMessage()));
                 });
             }
         });
     }
 
-    private void showImportedFiles() {
-        java.util.ArrayList<String> entries = PrivateImportStore.history(new File(getFilesDir(), "imports"));
+    private void showSoftwareLibrary() {
+        File inbox = new File(getFilesDir(), "software/installers");
+        java.util.ArrayList<String> entries = PrivateImportStore.history(inbox);
         if (entries.isEmpty()) {
-            new AlertDialog.Builder(this).setTitle("导入记录")
-                    .setMessage("还没有导入文件。可以从 QQ「用其他软件打开」或本机文件选择器导入。")
-                    .setPositiveButton("确定", null).show();
+            new AlertDialog.Builder(this).setTitle("我的电脑软件")
+                    .setMessage("还没有添加电脑软件安装包。\n\n支持 Windows .exe / .msi 安装包和 .zip 便携软件包。安装成功后，软件名称和图标会出现在未来科技的电脑桌面；可按需创建快捷图标。")
+                    .setPositiveButton("添加软件", (d, w) -> chooseSoftwarePackage()).show();
             return;
         }
-        new AlertDialog.Builder(this).setTitle("导入记录（最近 100 条）")
-                .setItems(entries.toArray(new String[0]), (d, which) ->
-                        new AlertDialog.Builder(this).setTitle("文件记录").setMessage(entries.get(which))
-                                .setPositiveButton("确定", null).show())
+        String[] rows = new String[entries.size()];
+        for (int i = 0; i < entries.size(); i++) rows[i] = "待安装 · " + entries.get(i).replace("\n", " · ");
+        new AlertDialog.Builder(this).setTitle("软件安装包（待安装）")
+                .setItems(rows, (d, which) -> new AlertDialog.Builder(this).setTitle("软件包详情")
+                        .setMessage(entries.get(which)
+                                + "\n\n状态：已导入，尚未安装。\n安装成功后才能生成真实软件图标和快捷方式。"
+                                + "\n当前兼容运行引擎尚未集成，暂不能启动安装程序。")
+                        .setPositiveButton("确定", null).show())
                 .setNegativeButton("关闭", null).show();
+    }
+
+    private void showRuntimeMemorySettings() {
+        String[] labels = {"自动动态分配（推荐）", "性能优先（按需使用数 GB）", "系统优先（降低后台占用）"};
+        String[] values = {"auto", "performance", "system"};
+        String current = getSharedPreferences("future_runtime", MODE_PRIVATE).getString("memory_policy", "auto");
+        int selected = 0;
+        for (int i = 0; i < values.length; i++) if (values[i].equals(current)) selected = i;
+        new AlertDialog.Builder(this).setTitle("运行内存策略")
+                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                    getSharedPreferences("future_runtime", MODE_PRIVATE).edit()
+                            .putString("memory_policy", values[which]).apply();
+                    updateDeviceInfo();
+                    dialog.dismiss();
+                    toast("内存策略已保存：" + labels[which] + "。运行引擎接入后生效。");
+                }).setNegativeButton("取消", null).show();
+    }
+
+    private String getMemoryPolicyLabel() {
+        String value = getSharedPreferences("future_runtime", MODE_PRIVATE).getString("memory_policy", "auto");
+        if ("performance".equals(value)) return "性能优先";
+        if ("system".equals(value)) return "系统优先";
+        return "自动动态分配";
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
-        if (requestCode == PICK_FILE) confirmIncomingFile(uri);
+        if (requestCode == PICK_SOFTWARE) confirmIncomingSoftware(uri);
         if (requestCode == PICK_AVATAR) {
             selectedAvatar = uri;
             Toast.makeText(this, "头像已选择，登录后可上传到账号服务器", Toast.LENGTH_SHORT).show();
@@ -311,14 +371,8 @@ public final class MainActivity extends Activity {
         return box;
     }
 
-    private void showAccountMenu() {
-        new AlertDialog.Builder(this).setTitle("未来科技账号")
-                .setItems(new String[]{"注册新账号", "登录已有账号"}, (d, which) -> {
-                    if (which == 0) showRegister(); else showLogin();
-                }).show();
-    }
-
     private void showRegister() {
+        selectedAvatar = null;
         LinearLayout box = form();
         EditText qq = field("QQ 号（可选）", false);
         EditText wx = field("微信号（可选）", false);
@@ -348,8 +402,6 @@ public final class MainActivity extends Activity {
                         body.put("displayName", nickname.getText().toString().trim());
                         body.put("password", p);
                         body.put("deviceId", deviceId());
-                        String avatarBase64 = AvatarEncoder.readBase64(getContentResolver(), selectedAvatar);
-                        if (avatarBase64 != null) body.put("avatarBase64", avatarBase64);
                     } catch (Exception avatarError) {
                         toast("头像读取失败：" + avatarError.getMessage());
                         return;
@@ -396,15 +448,32 @@ public final class MainActivity extends Activity {
                     if (mime != null) body.put("avatarMimeType", mime);
                 }
                 JSONObject result = ApiClient.request(BuildConfig.API_BASE_URL, "POST", path, body, null);
+                boolean registration = "/auth/register".equals(path);
                 String token = result.optString("accessToken", "");
                 String refresh = result.optString("refreshToken", "");
-                if (!token.isEmpty()) TokenVault.saveSession(this, token, refresh);
+                if (!registration && !token.isEmpty()) TokenVault.saveSession(this, token, refresh);
                 String state = result.optString("accountStatus", "active");
-                ui.post(() -> new AlertDialog.Builder(this).setTitle(success)
-                        .setMessage("服务器账户状态：" + state + (result.optBoolean("whitelistRequired", false) ? "\n账号需要管理员白名单批准。" : ""))
-                        .setPositiveButton("确定", null).show());
+                ui.post(() -> {
+                    if (!registration && !token.isEmpty()) authenticatedThisLaunch = true;
+                    updateSessionControls();
+                    String message = registration
+                            ? "账号已创建，状态：" + state
+                                + (result.optBoolean("whitelistRequired", false)
+                                    ? "\n账号还需管理员批准。批准后请手动登录。"
+                                    : "\n注册和登录是分开的，请返回主页点击“已有账号？登录”手动登录。")
+                            : "登录成功。";
+                    new AlertDialog.Builder(this).setTitle(success).setMessage(message)
+                            .setPositiveButton("确定", null).show();
+                });
             } catch (Exception e) { ui.post(() -> toast(e.getMessage())); }
         });
+    }
+
+    private void updateSessionControls() {
+        if (accountStatus != null) accountStatus.setText(authenticatedThisLaunch
+                ? "账号状态：已登录（本次启动已完成服务器验证）"
+                : "账号状态：未登录（首次使用请先注册；已有账号请手动登录）");
+        if (logoutButton != null) logoutButton.setVisibility(authenticatedThisLaunch ? View.VISIBLE : View.GONE);
     }
 
     private void logout() {
@@ -416,7 +485,11 @@ public final class MainActivity extends Activity {
                 }
             } catch (Exception ignored) {}
             TokenVault.clear(this);
-            ui.post(() -> toast("已退出登录"));
+            authenticatedThisLaunch = false;
+            ui.post(() -> {
+                updateSessionControls();
+                toast("已退出当前会话");
+            });
         });
     }
 
