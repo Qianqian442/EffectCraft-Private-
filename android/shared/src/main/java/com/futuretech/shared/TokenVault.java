@@ -1,0 +1,57 @@
+package com.futuretech.shared;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+/** Stores short-lived tokens encrypted by an Android Keystore AES key. */
+public final class TokenVault {
+    private static final String PREFS = "future_tech_session";
+    private static final String ALIAS = "future_tech_session_aes_v1";
+    private TokenVault() {}
+
+    public static void save(Context context, String token) throws Exception {
+        SecretKey key = key();
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] ciphertext = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString("iv", Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
+                .putString("data", Base64.encodeToString(ciphertext, Base64.NO_WRAP)).apply();
+    }
+
+    public static String read(Context context) throws Exception {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String iv = prefs.getString("iv", null), data = prefs.getString("data", null);
+        if (iv == null || data == null) return null;
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)));
+        return new String(cipher.doFinal(Base64.decode(data, Base64.NO_WRAP)), StandardCharsets.UTF_8);
+    }
+
+    public static void clear(Context context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply();
+    }
+
+    private static SecretKey key() throws Exception {
+        KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+        store.load(null);
+        java.security.Key existing = store.getKey(ALIAS, null);
+        if (existing instanceof SecretKey) return (SecretKey) existing;
+        KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        generator.init(new KeyGenParameterSpec.Builder(ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true).setUserAuthenticationRequired(false).build());
+        return generator.generateKey();
+    }
+}
