@@ -53,7 +53,7 @@ public final class WindowsSoftwareStore {
 
     public static File resolveImportedFile(File inbox, JSONObject record) throws IOException {
         String storedName = record.optString("storedFile", "");
-        if (storedName.isEmpty() || storedName.contains("/") || storedName.contains("\\\\"))
+        if (storedName.isEmpty() || storedName.contains("/") || storedName.indexOf('\\') >= 0)
             throw new IOException("导入文件记录无效");
         File base = inbox.getCanonicalFile();
         File file = new File(base, storedName).getCanonicalFile();
@@ -116,7 +116,7 @@ public final class WindowsSoftwareStore {
             byte[] buffer = new byte[128 * 1024];
             while ((entry = input.getNextEntry()) != null) {
                 if (++entryCount > MAX_ARCHIVE_ENTRIES) throw new IOException("ZIP 文件包含过多条目");
-                String entryName = entry.getName().replace('\\\\', '/');
+                String entryName = entry.getName().replace('\\', '/');
                 if (entryName.startsWith("/") || entryName.matches("^[A-Za-z]:.*"))
                     throw new IOException("ZIP 中包含绝对路径，已拒绝解压");
                 String[] parts = entryName.split("/");
