@@ -13,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.futuretech.shared.ApiClient;
+import com.futuretech.shared.TokenVault;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -35,9 +36,9 @@ public final class AdminActivity extends Activity {
         super.onCreate(state);
         ui = new android.os.Handler(getMainLooper());
         buildBase();
-        // Admin credentials and tokens are deliberately memory-only.
-        // Every app launch, reinstall or re-download requires the current server password.
-        showLogin();
+        try { accountToken = TokenVault.read(this); } catch (Exception ignored) {}
+        if (accountToken == null || accountToken.isEmpty()) showLogin();
+        else refreshSession();
     }
 
     private void buildBase() {
@@ -80,11 +81,11 @@ public final class AdminActivity extends Activity {
                 .setPositiveButton("登录", (d, w) -> {
                     JSONObject body = new JSONObject();
                     try {
-                        body.put("username", account.getText().toString().trim());
+                        body.put("account", account.getText().toString().trim());
                         body.put("password", password.getText().toString());
                         body.put("deviceId", deviceId());
                     } catch (Exception ignored) {}
-                    post("/admin/login", body, null, result -> {
+                    post("/auth/login", body, null, result -> {
                         accountToken = result.optString("accessToken", "");
                         if (accountToken.isEmpty()) { message("服务器没有发放有效会话。"); return; }
                         if (result.optBoolean("mustChangePassword", false)) showChangePassword(true);
@@ -120,12 +121,33 @@ public final class AdminActivity extends Activity {
             catch (Exception ignored) {}
             post("/auth/password/change", body, accountToken, result -> {
                 dialog.dismiss();
-                accountToken = null; // Server revokes all admin sessions after password rotation.
+                accountToken = null;
+                TokenVault.clear(this);
                 message("管理员密码已更新，旧密码和旧会话全部失效。");
-                showLogin(); // Next login must use the new server password.
+                showLogin(); // The next login must use the new server password.
             });
         }));
         dialog.show();
+    }
+
+    private void refreshSession() {
+        try {
+            String refresh = TokenVault.readRefresh(this);
+            if (refresh == null || refresh.isEmpty()) { TokenVault.clear(this); accountToken = null; showLogin(); return; }
+            JSONObject body = new JSONObject();
+            body.put("refreshToken", refresh);
+            io.execute(() -> {
+                try {
+                    JSONObject result = ApiClient.request(BuildConfig.API_BASE_URL, "POST", "/auth/refresh", body, null);
+                    accountToken = result.optString("accessToken", "");
+                    TokenVault.saveSession(this, accountToken, result.optString("refreshToken", ""));
+                    ui.post(this::loadDashboard);
+                } catch (Exception e) {
+                    TokenVault.clear(this); accountToken = null;
+                    ui.post(this::showLogin);
+                }
+            });
+        } catch (Exception e) { TokenVault.clear(this); accountToken = null; showLogin(); }
     }
 
     private void loadDashboard() {
@@ -205,6 +227,7 @@ public final class AdminActivity extends Activity {
     private void logout() {
         JSONObject empty = new JSONObject();
         post("/auth/logout", empty, accountToken, x -> {
+            TokenVault.clear(this);
             accountToken = null;
             message("已退出管理员登录");
             showLogin();
