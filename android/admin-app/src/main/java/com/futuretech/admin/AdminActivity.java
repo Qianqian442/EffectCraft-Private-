@@ -88,6 +88,8 @@ public final class AdminActivity extends Activity {
                     post("/auth/login", body, null, result -> {
                         accountToken = result.optString("accessToken", "");
                         if (accountToken.isEmpty()) { message("服务器没有发放有效会话。"); return; }
+                        try { TokenVault.saveSession(this, accountToken, result.optString("refreshToken", "")); }
+                        catch (Exception e) { message("无法安全保存登录会话"); return; }
                         if (result.optBoolean("mustChangePassword", false)) showChangePassword(true);
                         else loadDashboard();
                     });
