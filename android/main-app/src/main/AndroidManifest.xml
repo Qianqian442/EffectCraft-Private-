@@ -6,6 +6,7 @@
         android:allowBackup="false"
         android:label="未来科技"
         android:icon="@drawable/future_tech_icon"
+        android:roundIcon="@drawable/future_tech_icon"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
         <activity
