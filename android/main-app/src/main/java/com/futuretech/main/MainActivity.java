@@ -115,6 +115,11 @@ public final class MainActivity extends Activity {
         deviceInfo.setPadding(0, dp(22), 0, dp(16));
         content.addView(deviceInfo);
 
+        Button marketplaceButton = button("打开电脑应用商城", v -> startActivity(new Intent(this, ComputerMarketplaceActivity.class)));
+        marketplaceButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.computer_marketplace_icon, 0, 0, 0);
+        marketplaceButton.setCompoundDrawablePadding(dp(10));
+        marketplaceButton.setMinHeight(dp(64));
+        content.addView(marketplaceButton);
         content.addView(button("添加电脑软件安装包", v -> chooseSoftwarePackage()));
         softwareStatus = new TextView(this);
         softwareStatus.setText("添加 Windows .exe / .msi 安装包或 .zip 便携软件包。安装成功后，软件会显示在未来科技电脑桌面，可创建快捷图标。");
