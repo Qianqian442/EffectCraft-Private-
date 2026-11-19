@@ -14,19 +14,19 @@ jobs:
 
       - name: Require private Cloudflare deployment configuration
         env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          FUTURE_TECH_D1_DATABASE_ID: \${{ secrets.FUTURE_TECH_D1_DATABASE_ID }}
-          FUTURE_TECH_JWT_SECRET: \${{ secrets.FUTURE_TECH_JWT_SECRET }}
-          FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD: \${{ secrets.FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD }}
-          FUTURE_TECH_WORKER_URL: \${{ vars.FUTURE_TECH_WORKER_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FUTURE_TECH_D1_DATABASE_ID: ${{ secrets.FUTURE_TECH_D1_DATABASE_ID }}
+          FUTURE_TECH_JWT_SECRET: ${{ secrets.FUTURE_TECH_JWT_SECRET }}
+          FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD }}
+          FUTURE_TECH_WORKER_URL: ${{ vars.FUTURE_TECH_WORKER_URL }}
         run: |
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$FUTURE_TECH_D1_DATABASE_ID"
-          test "\${#FUTURE_TECH_JWT_SECRET}" -ge 64
-          test "\${#FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD}" -ge 12
+          test "${#FUTURE_TECH_JWT_SECRET}" -ge 64
+          test "${#FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD}" -ge 12
           test -n "$FUTURE_TECH_WORKER_URL"
 
       - name: Set up Node.js 22
@@ -36,8 +36,8 @@ jobs:
 
       - name: Create private Wrangler config
         env:
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          FUTURE_TECH_D1_DATABASE_ID: \${{ secrets.FUTURE_TECH_D1_DATABASE_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FUTURE_TECH_D1_DATABASE_ID: ${{ secrets.FUTURE_TECH_D1_DATABASE_ID }}
         run: |
           set -euo pipefail
           cp server/cloudflare/wrangler.toml.example server/cloudflare/wrangler.toml
@@ -50,26 +50,26 @@ jobs:
 
       - name: Verify required R2 bucket exists
         env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           wrangler r2 bucket list | grep -F 'future-tech-avatars'
 
       - name: Apply D1 schema
         env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           wrangler d1 execute future-tech-accounts --remote --file=server/cloudflare/schema.sql --config server/cloudflare/wrangler.toml
 
       - name: Set private Worker secrets
         env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          FUTURE_TECH_JWT_SECRET: \${{ secrets.FUTURE_TECH_JWT_SECRET }}
-          FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD: \${{ secrets.FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FUTURE_TECH_JWT_SECRET: ${{ secrets.FUTURE_TECH_JWT_SECRET }}
+          FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD }}
         run: |
           set -euo pipefail
           printf '%s' "$FUTURE_TECH_JWT_SECRET" | wrangler secret put JWT_SECRET --config server/cloudflare/wrangler.toml
@@ -77,13 +77,13 @@ jobs:
 
       - name: Deploy Worker
         env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: wrangler deploy --config server/cloudflare/wrangler.toml
 
       - name: Verify HTTPS health endpoint
         env:
-          FUTURE_TECH_WORKER_URL: \${{ vars.FUTURE_TECH_WORKER_URL }}
+          FUTURE_TECH_WORKER_URL: ${{ vars.FUTURE_TECH_WORKER_URL }}
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 \
