@@ -1,14 +1,15 @@
 name: Build 未来科技 Android APKs
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'android/**'
-      - 'server/cloudflare/**'
-      - 'tools/verify_future_tech_import.py'
-      - '.github/workflows/build-future-technology.yml'
+  # APKs are not emitted for every code change. A release candidate is built
+  # only after the complete runtime, store, desktop discovery and device checks pass.
   workflow_dispatch:
+    inputs:
+      release_ready:
+        description: "Confirm the full Windows runtime, software store, auto-discovery, shortcuts and device tests are complete."
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -20,6 +21,7 @@ concurrency:
 jobs:
   build:
     name: Compile and verify user + admin APK
+    if: \${{ inputs.release_ready == true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
