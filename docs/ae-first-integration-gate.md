@@ -35,7 +35,7 @@ Use real, legally obtained, representative fixtures:
 - projects whose media paths are desktop absolute paths and must be relinked on Android.
 
 Pass criteria:
-- QQ ACTION_VIEW / ACTION_SEND / Android content:// URI launch path reaches Ae's existing auto-import workflow.
+- QQ `ACTION_VIEW`, `ACTION_SEND`, and `ACTION_SEND_MULTIPLE` / Android `content://` URI launch paths reach Ae's existing auto-import workflow.\n- Future Technology's intake layer must pass the copied file to Ae without renaming, truncating, rewriting, or losing the original project bytes; the SHA-256 digest must match before and after handoff.
 - Ae opens the import, not merely the home screen.
 - The source project is preserved unchanged in import staging.
 - Composition/layer IDs, ordering, rational frame rates, durations, keyframes, transforms, parent relationships, effect names/parameters, and unknown source chunks survive conversion.
