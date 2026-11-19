@@ -1,0 +1,67 @@
+name: Compile-check Future Technology without publishing APKs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "tools/verify_future_tech_import.py"
+      - ".github/workflows/compile-check-future-technology.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: future-tech-compile-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check marketplace, installer intake and account regression rules
+        run: python tools/verify_future_tech_import.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -x "$SDKMANAGER"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          set -o pipefail
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Compile main and admin APKs without publishing artifacts
+        working-directory: android
+        env:
+          FUTURE_TECH_API_BASE: ${{ vars.FUTURE_TECH_API_BASE || '' }}
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace \
+            :main-app:assembleDebug \
+            :admin-app:assembleDebug
+          test -s main-app/build/outputs/apk/debug/main-app-debug.apk
+          test -s admin-app/build/outputs/apk/debug/admin-app-debug.apk
+          echo "Compile check passed. No APK artifacts were uploaded."
