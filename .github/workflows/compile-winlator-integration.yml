@@ -60,16 +60,23 @@ jobs:
       - name: Prepare Winlator as a non-launcher Android library
         run: |
           set -euo pipefail
-          test -f third_party/winlator/app/src/main/assets/rootfs.tzst
           python tools/prepare_winlator_runtime.py
-          test -f android/winlator-runtime/src/main/assets/rootfs.tzst
-          test -d android/winlator-runtime/src/main/jniLibs/arm64-v8a
-          echo "=== ARM64 JNI library directory ==="
-          ls -laR android/winlator-runtime/src/main/jniLibs/arm64-v8a | head -n 80 || true
-          echo "=== Generated runtime Gradle module ==="
-          sed -n '1,100p' android/winlator-runtime/build.gradle
-          echo "=== Android library plugin marker ==="
-          grep -n "com.android" android/winlator-runtime/build.gradle || true
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("android/winlator-runtime")
+          print("module exists:", root.is_dir())
+          print("Gradle exists:", (root / "build.gradle").is_file())
+          print("Manifest exists:", (root / "src/main/AndroidManifest.xml").is_file())
+          print("RootFS exists:", (root / "src/main/assets/rootfs.tzst").is_file())
+          jni = root / "src/main/jniLibs/arm64-v8a"
+          print("ARM64 JNI directory exists:", jni.is_dir())
+          if jni.is_dir():
+              for item in sorted(jni.rglob("*")):
+                  if item.is_file():
+                      print("JNI:", item.relative_to(root), item.stat().st_size)
+          if (root / "build.gradle").is_file():
+              print((root / "build.gradle").read_text(encoding="utf-8")[:6000])
+          PY
 
       - name: Verify marketplace and project separation rules
         run: python tools/verify_future_tech_import.py
