@@ -3,6 +3,8 @@ package com.futuretech.main;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.content.pm.FeatureInfo;
+import android.content.pm.PackageManager;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
@@ -155,9 +157,34 @@ public final class MainActivity extends Activity {
             }
         }
         info.append("\nAndroid：").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")");
+
         ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
         ((ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(memory);
-        info.append("\n总内存：").append(memory.totalMem / (1024L * 1024L)).append(" MB");
+        info.append("\n物理内存：").append(memory.totalMem / (1024L * 1024L)).append(" MB");
+        info.append("\n可用内存：").append(memory.availMem / (1024L * 1024L)).append(" MB");
+        info.append("\n应用可用存储：").append(getFilesDir().getUsableSpace() / (1024L * 1024L)).append(" MB");
+
+        String glVersion = "未声明";
+        String vulkanVersion = "未声明";
+        String vulkanLevel = "未声明";
+        PackageManager pm = getPackageManager();
+        FeatureInfo[] features = pm.getSystemAvailableFeatures();
+        if (features != null) {
+            for (FeatureInfo feature : features) {
+                if (PackageManager.FEATURE_GL_ES_VERSION.equals(feature.name)) {
+                    int major = (feature.version >>> 16) & 0xffff;
+                    int minor = feature.version & 0xffff;
+                    glVersion = major + "." + minor;
+                } else if (PackageManager.FEATURE_VULKAN_HARDWARE_VERSION.equals(feature.name)) {
+                    vulkanVersion = String.format(java.util.Locale.ROOT, "0x%08X", feature.version);
+                } else if (PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL.equals(feature.name)) {
+                    vulkanLevel = String.format(java.util.Locale.ROOT, "0x%08X", feature.version);
+                }
+            }
+        }
+        info.append("\nOpenGL ES：").append(glVersion);
+        info.append("\nVulkan 硬件版本：").append(vulkanVersion);
+        info.append("\nVulkan 硬件级别：").append(vulkanLevel);
         info.append("\nAPI 服务器：").append(BuildConfig.API_BASE_URL.isEmpty() ? "未配置" : "已配置");
         deviceInfo.setText(info);
     }
