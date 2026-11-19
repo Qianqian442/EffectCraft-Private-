@@ -19,5 +19,5 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    sourceSets { main { java.srcDirs += ['../shared/src/main/java'] } }
+    dependencies { implementation project(':shared') }
 }
