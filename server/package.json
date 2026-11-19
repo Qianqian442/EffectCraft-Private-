@@ -1,0 +1,12 @@
+{
+  "name": "future-tech-account-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check worker.js",
+    "validate-migrations": "node -e \"const fs=require('fs'); const s=fs.readFileSync('migrations/0001_init.sql','utf8'); for (const t of ['admins','users','allowlist','bans','sessions','audit_log']) if (!s.includes('CREATE TABLE IF NOT EXISTS '+t)) process.exit(1); console.log('D1 migration tables verified')\""
+  },
+  "devDependencies": {
+    "wrangler": "4.46.0"
+  }
+}
