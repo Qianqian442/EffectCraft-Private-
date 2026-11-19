@@ -7,6 +7,7 @@ MANIFEST = ROOT / "android/main-app/src/main/AndroidManifest.xml"
 ACTIVITY = ROOT / "android/main-app/src/main/java/com/futuretech/main/MainActivity.java"
 STORE = ROOT / "android/main-app/src/main/java/com/futuretech/main/PrivateImportStore.java"
 ICON = ROOT / "android/main-app/src/main/icon/future_tech_icon.jpg.b64"
+MARKETPLACE_ICON = ROOT / "android/main-app/src/main/icon/computer_marketplace_icon.webp.b64"
 GRADLE = ROOT / "android/main-app/build.gradle"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 def require(condition: bool, message: str) -> None:
@@ -41,8 +42,12 @@ for token in ("MAX_IMPORT_BYTES", "MessageDigest.getInstance", "getUsableSpace",
     require(token in store, f"private package store safety missing: {token}")
 for forbidden in ("Runtime.getRuntime().exec(", "new ProcessBuilder("):
     require(forbidden not in main + store, f"imported software must not execute outside the Windows runtime: {forbidden}")
-require("logo.setImageResource(R.drawable.future_tech_icon)" in main, "user logo must be visible in the Future Technology app")
+require("logo.setImageResource(R.drawable.future_tech_icon)" in main, "Future Technology launcher identity must remain separate")
+require(MARKETPLACE_ICON.is_file() and len(MARKETPLACE_ICON.read_text(encoding="ascii").strip()) > 1000,
+        "user-provided computer marketplace icon asset is missing")
+require("materializeComputerMarketplaceIcon" in gradle and "computer_marketplace_icon.webp" in gradle,
+        "Gradle must decode the computer marketplace icon before compilation")
 require(ICON.is_file() and len(ICON.read_text(encoding="ascii").strip()) > 5000, "user-provided logo asset is missing")
 gradle = GRADLE.read_text(encoding="utf-8")
 require("materializeFutureTechIcon" in gradle and "Base64.getDecoder().decode" in gradle, "Gradle must decode the supplied logo before compilation")
-print("Future Technology checks passed: Windows installer inbox, Ae project separation, registration-first UI, manual login, dynamic multi-GB memory policy, safe package copying.")
+print("Future Technology checks passed: Windows installer inbox, Ae project separation, registration-first UI, manual login, dynamic multi-GB memory policy, safe package copying and separate marketplace icon asset.")

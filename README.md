@@ -46,7 +46,7 @@ Set GitHub Actions variable `FUTURE_TECH_API_BASE` to the same HTTPS Worker URL 
 
 - QQ/Android file sharing is now copied into an app-private inbox with a SHA-256 digest and basic PE/ELF/WASM/AE-extension classification. This is file intake only: it does not yet parse `.aep` projects, resolve desktop media, load `.aex` plug-ins, or execute `.exe` files.\n- The user/admin Android project scaffolds and API source are present, but Cloudflare D1/Worker deployment has not been performed.
 - Wine, Box64/Box86, the Linux root filesystem, graphics backends (Mesa/Turnip, DXVK/VKD3D), and a functional Windows process/session manager have not yet been integrated into the APK. The runtime switch currently reports this honestly and will not execute unverified binaries.
-- The user-supplied icon image is not available as a materialized file in the active repository workspace yet; the app icon remains a replaceable placeholder until that image is added.
+- The green image supplied on 2026-11-19 has now been added as a separate **电脑应用商城** icon asset. It is not the Android launcher icon. The marketplace UI/catalogue still needs implementation.
 
 A normal Android app cannot silently implant a system-signed framework into protected Android system partitions. Future Technology uses an app-private compatibility container that can be enabled/disabled within Android's sandbox.
 

@@ -2,6 +2,13 @@
 
 This is the agreed product boundary for the final user-facing Future Technology Android app. It is a PC-software runtime and launcher on Android, not an After Effects project importer.
 
+## Compatibility environment enable/bootstrap
+
+- “开启兼容环境” means downloading/verifying and deploying the Windows compatibility runtime into Future Technology's app-private storage on first use, initializing the Windows container/prefix, and then starting that runtime. It does not modify Android system partitions, replace Android framework components, require root, or weaken SELinux.
+- First-time enablement must show download/deployment progress, required phone storage, supported device/ABI checks, signed manifest and per-file hash verification, and clear recovery/rollback if any component is incomplete.
+- After the runtime reports a healthy ready state, users can install and launch supported Windows software. Later enable/disable actions start/stop the existing container without deleting installed programs or user data.
+- A manifest file alone is not proof that the environment is installed or usable. Do not show “已开启” until integrity, dependency, graphics/audio/input checks and container startup succeed.
+
 ## Required user journey
 
 1. Open the **电脑应用商城** inside Future Technology.
@@ -45,7 +52,7 @@ This is the agreed product boundary for the final user-facing Future Technology 
 ## Accounts and existing product boundaries
 
 - Preserve the separate administrator app, account server verification, registration/login, whitelist, ban/unban, device/session checks, and audit trail. Do not silently bypass the server.
-- The logo supplied in the conversation is the Future Technology launcher icon and default product identity.
+- The green icon uploaded on 2026-11-19 is specifically the **电脑应用商城** icon. Keep it separate from the Future Technology Android launcher icon and the administrator-app icon.
 - Future Technology and Ae remain separate products: Future Technology runs Windows software; Ae imports/edits After Effects projects.
 
 ## Release acceptance tests — all required before handing over an APK

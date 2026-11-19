@@ -3,6 +3,8 @@ plugins { id 'com.android.application' }
 // Materialize the user's supplied launcher image before Android resource compilation.
 def futureTechIconSource = file("src/main/icon/future_tech_icon.jpg.b64")
 def futureTechIconTarget = file("src/main/res/drawable-nodpi/future_tech_icon.jpg")
+def marketplaceIconSource = file("src/main/icon/computer_marketplace_icon.webp.b64")
+def marketplaceIconTarget = file("src/main/res/drawable-nodpi/computer_marketplace_icon.webp")
 tasks.register("materializeFutureTechIcon") {
     inputs.file(futureTechIconSource)
     outputs.file(futureTechIconTarget)
@@ -13,7 +15,19 @@ tasks.register("materializeFutureTechIcon") {
         futureTechIconTarget.bytes = java.util.Base64.getDecoder().decode(encoded)
     }
 }
-tasks.named("preBuild").configure { dependsOn("materializeFutureTechIcon") }
+tasks.register("materializeComputerMarketplaceIcon") {
+    inputs.file(marketplaceIconSource)
+    outputs.file(marketplaceIconTarget)
+    doLast {
+        if (!marketplaceIconSource.isFile()) throw new GradleException("Computer marketplace icon asset is missing")
+        def encoded = marketplaceIconSource.getText("UTF-8").replaceAll("\\s+", "")
+        marketplaceIconTarget.parentFile.mkdirs()
+        marketplaceIconTarget.bytes = java.util.Base64.getDecoder().decode(encoded)
+    }
+}
+tasks.named("preBuild").configure {
+    dependsOn("materializeFutureTechIcon", "materializeComputerMarketplaceIcon")
+}
 
 def apiBase = (project.findProperty("futureTechApiBase") ?: System.getenv("FUTURE_TECH_API_BASE") ?: "").toString()
 def escapedApiBase = apiBase.replace("\\", "\\\\").replace('"', '\\"')
