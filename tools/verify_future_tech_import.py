@@ -5,6 +5,9 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "android/main-app/src/main/AndroidManifest.xml"
 ACTIVITY = ROOT / "android/main-app/src/main/java/com/futuretech/main/MainActivity.java"
+MARKETPLACE_ACTIVITY = ROOT / "android/main-app/src/main/java/com/futuretech/main/ComputerMarketplaceActivity.java"
+WORKER = ROOT / "server/cloudflare/src/index.js"
+SCHEMA = ROOT / "server/cloudflare/schema.sql"
 STORE = ROOT / "android/main-app/src/main/java/com/futuretech/main/PrivateImportStore.java"
 ICON = ROOT / "android/main-app/src/main/icon/future_tech_icon.jpg.b64"
 MARKETPLACE_ICON = ROOT / "android/main-app/src/main/icon/computer_marketplace_icon.webp.b64"
@@ -43,6 +46,21 @@ for token in ("MAX_IMPORT_BYTES", "MessageDigest.getInstance", "getUsableSpace",
 for forbidden in ("Runtime.getRuntime().exec(", "new ProcessBuilder("):
     require(forbidden not in main + store, f"imported software must not execute outside the Windows runtime: {forbidden}")
 require("logo.setImageResource(R.drawable.future_tech_icon)" in main, "Future Technology launcher identity must remain separate")
+require('button("打开电脑应用商城"' in main, "main app must expose the computer marketplace")
+require('android:name=".ComputerMarketplaceActivity"' in MANIFEST.read_text(encoding="utf-8"),
+        "marketplace activity must be registered")
+marketplace = MARKETPLACE_ACTIVITY.read_text(encoding="utf-8")
+for token in ("电脑应用商城", "/marketplace/catalog", "DownloadManager", "setDestinationUri",
+              "SHA-256", "expectedBytes", "STATUS_SUCCESSFUL", "computer_marketplace_icon"):
+    require(token in marketplace, f"marketplace/download verification missing: {token}")
+require("当前 Windows 兼容安装引擎尚未完成集成" in marketplace,
+        "download must not be falsely described as a Windows installation")
+worker = WORKER.read_text(encoding="utf-8")
+schema = SCHEMA.read_text(encoding="utf-8")
+require('/api/v1/marketplace/catalog' in worker and 'FROM software_catalog WHERE is_active=1' in worker,
+        "catalogue API must only return activated catalogue entries")
+for token in ("CREATE TABLE IF NOT EXISTS software_catalog", "redistribution_allowed", "expected_bytes", "sha256", "source_url", "is_active"):
+    require(token in schema, f"catalogue database schema missing: {token}")
 gradle = GRADLE.read_text(encoding="utf-8")
 require(MARKETPLACE_ICON.is_file() and len(MARKETPLACE_ICON.read_text(encoding="ascii").strip()) > 1000,
         "user-provided computer marketplace icon asset is missing")
@@ -50,4 +68,4 @@ require("materializeComputerMarketplaceIcon" in gradle and "computer_marketplace
         "Gradle must decode the computer marketplace icon before compilation")
 require(ICON.is_file() and len(ICON.read_text(encoding="ascii").strip()) > 5000, "Future Technology main icon asset is missing")
 require("materializeFutureTechIcon" in gradle and "Base64.getDecoder().decode" in gradle, "Gradle must decode the supplied logo before compilation")
-print("Future Technology checks passed: Windows installer inbox, Ae project separation, registration-first UI, manual login, dynamic multi-GB memory policy, safe package copying and separate marketplace icon asset.")
+print("Future Technology checks passed: Windows installer inbox, Ae project separation, registration-first UI, manual login, dynamic multi-GB memory policy, safe package copying, marketplace catalogue API and on-device checksum-verified downloads.")
