@@ -45,7 +45,7 @@ public final class ApiClient {
             try { result = new JSONObject(response); }
             catch (Exception ex) { throw new IllegalStateException("服务器返回格式无效（HTTP " + status + "）。"); }
             if (status < 200 || status >= 300)
-                throw new ApiException(status, result.optString("message", "服务器请求失败"));
+                throw new ApiException(status, result.optString("error", result.optString("message", "服务器请求失败")));
             return result;
         } finally { connection.disconnect(); }
     }
