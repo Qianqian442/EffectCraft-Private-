@@ -1,11 +1,13 @@
 name = "future-tech-account-api"
 main = "src/index.js"
 compatibility_date = "2026-11-19"
+account_id = "REPLACE_WITH_CLOUDFLARE_ACCOUNT_ID"
 
 [vars]
 ACCESS_TOKEN_TTL_SECONDS = "900"
 REFRESH_TOKEN_TTL_SECONDS = "2592000"
 PASSWORD_HASH_ITERATIONS = "600000"
+ADMIN_BOOTSTRAP_ACCOUNT = "admin"
 
 [[d1_databases]]
 binding = "DB"
@@ -18,5 +20,4 @@ bucket_name = "future-tech-avatars"
 
 # Configure privately with Wrangler; never put secrets here:
 # wrangler secret put JWT_SECRET
-# wrangler secret put ADMIN_BOOTSTRAP_ACCOUNT
 # wrangler secret put ADMIN_BOOTSTRAP_PASSWORD
