@@ -1,0 +1,4 @@
+[submodule "third_party/winlator"]
+	path = third_party/winlator
+	url = https://github.com/brunodev85/winlator.git
+	branch = main
