@@ -1,0 +1,111 @@
+name: Build 未来科技 Android APKs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-future-technology.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: future-technology-android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Compile and verify user + admin APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore stable debug signing certificate
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: future-tech-debug-signing-v1-${{ github.repository_id }}
+
+      - name: Create stable debug signing certificate on first build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [[ ! -s "$HOME/.android/debug.keystore" ]]; then
+            keytool -genkeypair -noprompt -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Future Technology Android, OU=Future Technology, O=Future Technology, C=US"
+          fi
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
+      - name: Build both APKs
+        working-directory: android
+        env:
+          FUTURE_TECH_API_BASE: ${{ vars.FUTURE_TECH_API_BASE || '' }}
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace \
+            :main-app:assembleDebug \
+            :admin-app:assembleDebug
+          test -s main-app/build/outputs/apk/debug/main-app-debug.apk
+          test -s admin-app/build/outputs/apk/debug/admin-app-debug.apk
+
+      - name: Verify APK package integrity, package names and signatures
+        shell: bash
+        working-directory: android
+        run: |
+          set -euo pipefail
+          MAIN="main-app/build/outputs/apk/debug/main-app-debug.apk"
+          ADMIN="admin-app/build/outputs/apk/debug/admin-app-debug.apk"
+          unzip -t "$MAIN" >/dev/null
+          unzip -t "$ADMIN" >/dev/null
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$MAIN"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$ADMIN"
+          aapt dump badging "$MAIN" | grep -F "package: name='com.futuretech.main'"
+          aapt dump badging "$ADMIN" | grep -F "package: name='com.futuretech.admin'"
+          mkdir -p ../dist
+          cp "$MAIN" ../dist/Future-Technology.apk
+          cp "$ADMIN" ../dist/Future-Technology-Admin.apk
+          (cd ../dist && sha256sum *.apk > SHA256SUMS)
+
+      - name: Upload APK candidates for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: Future-Technology-Android-APKs
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Save stable debug signing certificate
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: future-tech-debug-signing-v1-${{ github.repository_id }}
