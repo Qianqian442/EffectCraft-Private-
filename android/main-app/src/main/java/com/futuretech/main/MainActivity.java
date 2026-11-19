@@ -60,13 +60,20 @@ public final class MainActivity extends Activity {
         buildUi();
         updateDeviceInfo();
         updateSessionControls();
-        if (!handleInstalledAppShortcut(getIntent())) handleIncomingIntent(getIntent());
+        if (!handleInstalledAppShortcut(getIntent())) {
+            handleIncomingIntent(getIntent());
+            if (getIntent() != null && getIntent().getBooleanExtra("open_software_library", false))
+                showSoftwareLibrary();
+        }
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (!handleInstalledAppShortcut(intent)) handleIncomingIntent(intent);
+        if (!handleInstalledAppShortcut(intent)) {
+            handleIncomingIntent(intent);
+            if (intent.getBooleanExtra("open_software_library", false)) showSoftwareLibrary();
+        }
     }
 
     @Override protected void onResume() {
