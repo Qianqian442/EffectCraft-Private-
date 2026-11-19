@@ -2,10 +2,12 @@ package com.futuretech.main;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.ApplicationExitInfo;
 import android.app.AlertDialog;
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
 import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.graphics.drawable.Icon;
@@ -32,7 +34,9 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 
 import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
@@ -136,6 +140,7 @@ public final class MainActivity extends Activity {
         toggleButton = button("开启兼容环境", v -> toggleRuntime());
         toggleButton.setMinHeight(dp(64));
         content.addView(toggleButton, new LinearLayout.LayoutParams(-1, dp(68)));
+        content.addView(button("查看上次环境异常记录", v -> showPreviousRuntimeCrash()));
 
         deviceInfo = new TextView(this);
         deviceInfo.setTextSize(13);
@@ -206,6 +211,84 @@ public final class MainActivity extends Activity {
             new AlertDialog.Builder(this).setTitle("兼容环境尚未构建")
                     .setMessage("当前安装包没有包含完整的 Wine/Box64 运行模块。请使用经过运行模块编译和验证的版本。")
                     .setPositiveButton("确定", null).show();
+        }
+    }
+
+    private void showPreviousRuntimeCrash() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            new AlertDialog.Builder(this).setTitle("环境故障记录")
+                    .setMessage("此功能需要 Android 11 或更高版本读取系统进程退出记录。")
+                    .setPositiveButton("知道了", null).show();
+            return;
+        }
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (manager == null) {
+            toast("无法读取系统故障记录");
+            return;
+        }
+        StringBuilder report = new StringBuilder("未来科技 / Windows 兼容环境故障记录\n");
+        java.util.List<ApplicationExitInfo> exits =
+                manager.getHistoricalProcessExitReasons(getPackageName(), 0, 8);
+        if (exits == null || exits.isEmpty()) {
+            report.append("\nAndroid 尚未提供该应用的历史进程退出记录。");
+        } else {
+            for (ApplicationExitInfo info : exits) {
+                report.append("\n\n进程：").append(info.getProcessName())
+                        .append("\n时间：").append(new java.text.SimpleDateFormat(
+                                "yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT)
+                                .format(new java.util.Date(info.getTimestamp())))
+                        .append("\n退出原因：").append(exitReasonLabel(info.getReason()))
+                        .append("（代码 ").append(info.getReason()).append("）")
+                        .append("\n说明：").append(info.getDescription() == null ? "无" : info.getDescription());
+                try (InputStream trace = info.getTraceInputStream()) {
+                    if (trace != null) {
+                        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                        byte[] buffer = new byte[4096];
+                        int total = 0;
+                        int count;
+                        while (total < 65536 && (count = trace.read(buffer, 0,
+                                Math.min(buffer.length, 65536 - total))) > 0) {
+                            bytes.write(buffer, 0, count);
+                            total += count;
+                        }
+                        String traceText = new String(bytes.toByteArray(), StandardCharsets.UTF_8).trim();
+                        if (!traceText.isEmpty()) report.append("\n系统跟踪：\n").append(traceText);
+                    }
+                } catch (Exception error) {
+                    report.append("\n读取跟踪失败：").append(error.getClass().getSimpleName())
+                            .append(": ").append(error.getMessage());
+                }
+            }
+        }
+        TextView text = new TextView(this);
+        text.setText(report.toString());
+        text.setTextIsSelectable(true);
+        text.setTextSize(12);
+        text.setPadding(dp(16), dp(12), dp(16), dp(12));
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(text);
+        new AlertDialog.Builder(this).setTitle("上次环境异常记录")
+                .setView(scroll)
+                .setPositiveButton("复制记录", (dialog, which) -> {
+                    ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Future Technology crash", report.toString()));
+                        toast("故障记录已复制，可以粘贴发送给我");
+                    }
+                })
+                .setNegativeButton("关闭", null).show();
+    }
+
+    private String exitReasonLabel(int reason) {
+        switch (reason) {
+            case ApplicationExitInfo.REASON_CRASH: return "Java 崩溃";
+            case ApplicationExitInfo.REASON_CRASH_NATIVE: return "Native 原生崩溃";
+            case ApplicationExitInfo.REASON_ANR: return "应用无响应";
+            case ApplicationExitInfo.REASON_LOW_MEMORY: return "系统内存不足";
+            case ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE: return "资源使用超限";
+            case ApplicationExitInfo.REASON_INITIALIZATION_FAILURE: return "进程初始化失败";
+            case ApplicationExitInfo.REASON_EXIT_SELF: return "应用主动退出";
+            default: return "其他 / 系统终止";
         }
     }
 
