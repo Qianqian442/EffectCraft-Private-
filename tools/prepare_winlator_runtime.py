@@ -94,7 +94,77 @@ main_text = main_java.read_text(encoding="utf-8")
 old = "            if (!requestAppPermissions()) RootFSInstaller.installIfNeeded(this);"
 if old not in main_text:
     raise SystemExit("Winlator MainActivity permission/bootstrap call changed; review before adapting")
-main_text = main_text.replace(old, "            RootFSInstaller.installIfNeeded(this);")
+main_text = main_text.replace(old, "            RootFSInstaller.installIfNeeded(this);\\n            ensureFutureTechnologyDefaultContainer();")
+
+imports = """import android.os.Handler;
+import android.os.Looper;
+import org.json.JSONObject;
+import com.winlator.box64.Box64Preset;
+import com.winlator.container.Container;
+import com.winlator.container.ContainerManager;
+import com.winlator.container.GraphicsDrivers;
+import com.winlator.core.WineThemeManager;
+import com.winlator.xenvironment.RootFS;
+"""
+main_text = main_text.replace("import android.os.Bundle;\\n", "import android.os.Bundle;\\n" + imports)
+
+bootstrap_method = """
+    /**
+     * Future Technology creates one isolated, app-private Wine container after
+     * the runtime root filesystem has been installed. Existing user containers
+     * are never modified or deleted.
+     */
+    private void ensureFutureTechnologyDefaultContainer() {
+        Handler handler = new Handler(Looper.getMainLooper());
+        final int[] attempts = {0};
+        Runnable[] retry = new Runnable[1];
+        retry[0] = () -> {
+            if (isFinishing() || isDestroyed()) return;
+            RootFS root = RootFS.find(this);
+            if (!root.isValid()) {
+                if (++attempts[0] < 900) handler.postDelayed(retry[0], 1000L);
+                return;
+            }
+            ContainerManager manager = new ContainerManager(this);
+            if (!manager.getContainers().isEmpty()) return;
+            try {
+                JSONObject data = new JSONObject();
+                data.put("name", "未来科技默认容器");
+                data.put("screenSize", Container.DEFAULT_SCREEN_SIZE);
+                data.put("envVars", Container.DEFAULT_ENV_VARS);
+                data.put("graphicsDriver", GraphicsDrivers.getDefaultDriver(this));
+                data.put("dxwrapper", Container.DEFAULT_DXWRAPPER);
+                data.put("audioDriver", Container.DEFAULT_AUDIO_DRIVER);
+                data.put("wincomponents", Container.DEFAULT_WINCOMPONENTS);
+                data.put("drives", Container.DEFAULT_DRIVES);
+                data.put("hudMode", 0);
+                data.put("startupSelection", Container.STARTUP_SELECTION_ESSENTIAL);
+                data.put("box64Preset", Box64Preset.DEFAULT);
+                data.put("desktopTheme", WineThemeManager.DEFAULT_DESKTOP_THEME);
+                manager.createContainerAsync(data, container -> runOnUiThread(() -> {
+                    if (container == null) {
+                        AppUtils.showToast(this, "默认 Windows 容器创建失败，请检查手机剩余空间");
+                        return;
+                    }
+                    NavigationView navigation = findViewById(R.id.NavigationView);
+                    if (navigation != null) {
+                        navigation.setCheckedItem(R.id.menu_item_containers);
+                        onNavigationItemSelected(navigation.getMenu().findItem(R.id.menu_item_containers));
+                    }
+                    AppUtils.showToast(this, "兼容环境已初始化，默认 Windows 容器已创建");
+                }));
+            } catch (Exception error) {
+                AppUtils.showToast(this, "默认 Windows 容器初始化失败：" + error.getMessage());
+            }
+        };
+        handler.postDelayed(retry[0], 500L);
+    }
+
+"""
+marker="    @Override\\n    protected void attachBaseContext(Context newBase) {"
+if marker not in main_text:
+    raise SystemExit("Winlator MainActivity insertion marker not found")
+main_text = main_text.replace(marker, bootstrap_method + marker)
 main_java.write_text(main_text, encoding="utf-8")
 
 print("Prepared Winlator 11.2 as an internal ARM64 Android library module.")
