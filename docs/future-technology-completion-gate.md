@@ -9,6 +9,15 @@ This is the agreed product boundary for the final user-facing Future Technology 
 - After the runtime reports a healthy ready state, users can install and launch supported Windows software. Later enable/disable actions start/stop the existing container without deleting installed programs or user data.
 - A manifest file alone is not proof that the environment is installed or usable. Do not show “已开启” until integrity, dependency, graphics/audio/input checks and container startup succeed.
 
+## Marketplace catalogue and phone-side download implementation
+
+- Public route: `GET /api/v1/marketplace/catalog`; only active D1 rows are returned.
+- Android renders the dedicated marketplace icon, searchable catalogue cards and category filters.
+- The marketplace downloads permitted installer bytes directly to this phone using Android DownloadManager. The Worker serves catalogue metadata only; it does not proxy the installer payload.
+- A direct download is enabled only when the entry allows redistribution and provides HTTPS download URL, expected byte count and a 64-character SHA-256 digest.
+- After download the app verifies exact byte count and SHA-256. An incomplete or mismatched file is deleted and never marked verified.
+- A verified download is still not an installed program. It remains pending until the Windows container installer, installed-app discovery and launch integration are complete.
+
 ## Required user journey
 
 1. Open the **电脑应用商城** inside Future Technology.
