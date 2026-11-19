@@ -8,6 +8,213 @@ from pathlib import Path
 import shutil
 import xml.etree.ElementTree as ET
 
+import re
+
+def _matching_delimiter(source, opening, left, right):
+    """Return the matching delimiter while ignoring Java strings and comments."""
+    depth = 0
+    state = "code"
+    i = opening
+    while i < len(source):
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < len(source) else ""
+        if state == "line_comment":
+            if ch == "\\n":
+                state = "code"
+        elif state == "block_comment":
+            if ch == "*" and nxt == "/":
+                state = "code"
+                i += 1
+        elif state == "string":
+            if ch == "\\\\":
+                i += 1
+            elif ch == '"':
+                state = "code"
+        elif state == "char":
+            if ch == "\\\\":
+                i += 1
+            elif ch == "'":
+                state = "code"
+        else:
+            if ch == "/" and nxt == "/":
+                state = "line_comment"
+                i += 1
+            elif ch == "/" and nxt == "*":
+                state = "block_comment"
+                i += 1
+            elif ch == '"':
+                state = "string"
+            elif ch == "'":
+                state = "char"
+            elif ch == left:
+                depth += 1
+            elif ch == right:
+                depth -= 1
+                if depth == 0:
+                    return i
+        i += 1
+    raise SystemExit("Unbalanced Java delimiter while adapting Winlator resource switch")
+
+def _find_switches(source):
+    found = []
+    pattern = re.compile(r"\\bswitch\\s*\\(")
+    for match in pattern.finditer(source):
+        paren_open = source.find("(", match.start(), match.end())
+        paren_close = _matching_delimiter(source, paren_open, "(", ")")
+        brace_open = paren_close + 1
+        while brace_open < len(source) and source[brace_open].isspace():
+            brace_open += 1
+        if brace_open >= len(source) or source[brace_open] != "{":
+            continue
+        brace_close = _matching_delimiter(source, brace_open, "{", "}")
+        found.append((match.start(), paren_open, paren_close, brace_open, brace_close))
+    return found
+
+def _top_level_case_labels(body):
+    labels = []
+    state = "code"
+    brace_depth = paren_depth = bracket_depth = 0
+    i = 0
+    line_start = 0
+    while i < len(body):
+        if i == line_start and brace_depth == 0 and state == "code":
+            line_end = body.find("\\n", i)
+            if line_end < 0:
+                line_end = len(body)
+            line = body[i:line_end]
+            marker = re.match(r"(\\s*)(case\\s+([^:\\n]+)|default)\\s*:", line)
+            if marker:
+                label_start = i + len(marker.group(1))
+                label_end = i + marker.end()
+                label_text = marker.group(2).strip()
+                labels.append((label_start, label_end, label_text))
+                i = label_end
+                continue
+        ch = body[i]
+        nxt = body[i + 1] if i + 1 < len(body) else ""
+        if state == "line_comment":
+            if ch == "\\n":
+                state = "code"
+        elif state == "block_comment":
+            if ch == "*" and nxt == "/":
+                state = "code"
+                i += 1
+        elif state == "string":
+            if ch == "\\\\":
+                i += 1
+            elif ch == '"':
+                state = "code"
+        elif state == "char":
+            if ch == "\\\\":
+                i += 1
+            elif ch == "'":
+                state = "code"
+        else:
+            if ch == "/" and nxt == "/":
+                state = "line_comment"
+                i += 1
+            elif ch == "/" and nxt == "*":
+                state = "block_comment"
+                i += 1
+            elif ch == '"':
+                state = "string"
+            elif ch == "'":
+                state = "char"
+            elif ch == "{":
+                brace_depth += 1
+            elif ch == "}":
+                brace_depth -= 1
+            elif ch == "(":
+                paren_depth += 1
+            elif ch == ")":
+                paren_depth -= 1
+            elif ch == "[":
+                bracket_depth += 1
+            elif ch == "]":
+                bracket_depth -= 1
+        if ch == "\\n":
+            line_start = i + 1
+        i += 1
+    return labels
+
+def _strip_switch_breaks(body):
+    # These upstream resource-ID switches are UI dispatchers; each break exits
+    # the switch, not an inner loop. Remove those terminators after converting
+    # the dispatcher to if/else. Nested switch expressions are retained.
+    return re.sub(r"\\bbreak\\s*;", "", body)
+
+def _convert_one_resource_switch(source, switch):
+    start, paren_open, paren_close, brace_open, brace_close = switch
+    body = source[brace_open + 1:brace_close]
+    labels = _top_level_case_labels(body)
+    if not any(re.search(r"\\bR\\.id\\.", label[2]) for label in labels):
+        return source, False
+
+    expr = source[paren_open + 1:paren_close].strip()
+    if not expr:
+        raise SystemExit("Empty switch expression while adapting Winlator resource switch")
+    groups = []
+    pending_labels = []
+    for index, (label_start, label_end, label_text) in enumerate(labels):
+        next_start = labels[index + 1][0] if index + 1 < len(labels) else len(body)
+        case_body = body[label_end:next_start]
+        if not re.sub(r"//[^\\n]*|/\\*[\\s\\S]*?\\*/", "", case_body).strip():
+            pending_labels.append(label_text)
+            continue
+        pending_labels.append(label_text)
+        groups.append((pending_labels, _strip_switch_breaks(case_body)))
+        pending_labels = []
+    if pending_labels:
+        groups.append((pending_labels, ""))
+
+    lines = ["{", "    final int __futureTechResourceSwitch = (" + expr + ");"]
+    emitted_default = False
+    emitted_condition = False
+    for case_labels, case_body in groups:
+        default_case = any(value == "default" for value in case_labels)
+        if default_case:
+            lines.append("    " + ("else " if emitted_condition else "") + "{")
+            emitted_default = True
+        else:
+            comparisons = []
+            for value in case_labels:
+                if value.startswith("case "):
+                    comparisons.append("__futureTechResourceSwitch == (" + value[5:].strip() + ")")
+            if not comparisons:
+                continue
+            prefix = "if" if not emitted_condition else "else if"
+            lines.append("    " + prefix + " (" + " || ".join(comparisons) + ") {")
+            emitted_condition = True
+        if case_body.strip():
+            lines.extend("        " + line if line else "" for line in case_body.strip("\\n").splitlines())
+        lines.append("    }")
+    if not emitted_condition and not emitted_default:
+        return source, False
+    if emitted_default and not emitted_condition:
+        raise SystemExit("Invalid default-only resource switch adaptation")
+    lines.append("}")
+    replacement = "\\n".join(lines)
+    return source[:brace_open] + replacement + source[brace_close + 1:], True
+
+def convert_resource_switches(source):
+    # Work from innermost/rightmost switch outward so nested UI dispatchers
+    # are rewritten independently without corrupting surrounding blocks.
+    while True:
+        switches = _find_switches(source)
+        target = None
+        for candidate in reversed(switches):
+            body = source[candidate[3] + 1:candidate[4]]
+            if any(re.search(r"\\bR\\.id\\.", label[2])
+                   for label in _top_level_case_labels(body)):
+                target = candidate
+                break
+        if target is None:
+            return source
+        source, changed = _convert_one_resource_switch(source, target)
+        if not changed:
+            return source
+
+
 ROOT = Path(__file__).resolve().parents[1]
 # The Winlator parent repo's "app" submodule is the winlator-app repository;
 # its actual Android Gradle application module is nested at app/app.
@@ -168,6 +375,18 @@ if marker not in main_text:
     raise SystemExit("Winlator MainActivity insertion marker not found")
 main_text = main_text.replace(marker, bootstrap_method + marker)
 main_java.write_text(main_text, encoding="utf-8")
+
+# Android library R.id fields are intentionally non-final. Rewrite upstream
+# UI switches that used those fields as case labels into equivalent if/else
+# dispatchers; this preserves behavior while allowing library compilation.
+converted_files = []
+for java_file in (DEST / "src" / "main" / "java").rglob("*.java"):
+    original = java_file.read_text(encoding="utf-8")
+    adapted = convert_resource_switches(original)
+    if adapted != original:
+        java_file.write_text(adapted, encoding="utf-8")
+        converted_files.append(str(java_file.relative_to(DEST)))
+print("Converted resource-ID switch dispatchers:", ", ".join(converted_files))
 
 print("Prepared Winlator 11.2 as an internal ARM64 Android library module.")
 print("Upstream source remains pinned and untouched; launcher intent removed; rootfs bootstrap uses app-private storage.")
