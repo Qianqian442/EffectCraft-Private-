@@ -9,7 +9,9 @@ import shutil
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
-UPSTREAM_APP = ROOT / "third_party" / "winlator" / "app"
+# The Winlator parent repo's "app" submodule is the winlator-app repository;
+# its actual Android Gradle application module is nested at app/app.
+UPSTREAM_APP = ROOT / "third_party" / "winlator" / "app" / "app"
 DEST = ROOT / "android" / "winlator-runtime"
 MANIFEST = UPSTREAM_APP / "src" / "main" / "AndroidManifest.xml"
 
