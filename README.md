@@ -28,6 +28,10 @@ The initial milestone is a safe, read-only plug-in binary inspector plus format 
 - `docs/project-interchange.md` — common project representation and import rules.
 - `docs/plugin-compatibility.md` — plug-in paths, ABI, and fallback behavior.
 - `docs/open-source-research.md` — candidate open-source compatibility projects and evaluation order.
+- `docs/why-desktop-software-does-not-run-on-android.md` — CPU, ABI, OS, graphics, host API and sandbox barriers.
+- `docs/integration-architecture-v2.md` — Winlator-based isolated runtime and plug-in integration design.
+- `compatibility/sources.lock.json` — upstream repositories pinned to exact commits with license and integration status.
+- `tools/validate_sources.py` — source pin/license policy validator.
 - `schemas/project-ir.schema.json` — versioned, loss-preserving project interchange contract.
 - `tools/inspect_plugin.py` — read-only PE/ELF/WASM/Mach-O/ZIP classifier.
 - `tests/` — synthetic header tests; no proprietary plug-ins required.
@@ -37,6 +41,7 @@ The initial milestone is a safe, read-only plug-in binary inspector plus format 
 
 ```bash
 python -m unittest discover -s tests -v
+python tools/validate_sources.py
 python tools/inspect_plugin.py path/to/plugin.aex
 ```
 
