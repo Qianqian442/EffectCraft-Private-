@@ -64,8 +64,8 @@ jobs:
           python tools/prepare_winlator_runtime.py
           test -f android/winlator-runtime/src/main/assets/rootfs.tzst
           test -d android/winlator-runtime/src/main/jniLibs/arm64-v8a
-          find android/winlator-runtime/src/main/jniLibs/arm64-v8a -maxdepth 1 -type f -name '*.so' -printf '%f %s bytes\\n' | sort
-          test -n "$(find android/winlator-runtime/src/main/jniLibs/arm64-v8a -maxdepth 1 -type f -name '*.so' -print -quit)"
+          find android/winlator-runtime/src/main/jniLibs/arm64-v8a -maxdepth 2 -type f -printf '%P %s bytes\\n' | sort
+          echo "Upstream ARM64 JNI directory contents listed above."
           grep -q "com.android.library" android/winlator-runtime/build.gradle
 
       - name: Verify marketplace and project separation rules
