@@ -19,19 +19,19 @@ def _matching_delimiter(source, opening, left, right):
         ch = source[i]
         nxt = source[i + 1] if i + 1 < len(source) else ""
         if state == "line_comment":
-            if ch == "\\n":
+            if ch == "\n":
                 state = "code"
         elif state == "block_comment":
             if ch == "*" and nxt == "/":
                 state = "code"
                 i += 1
         elif state == "string":
-            if ch == "\\\\":
+            if ch == "\\":
                 i += 1
             elif ch == '"':
                 state = "code"
         elif state == "char":
-            if ch == "\\\\":
+            if ch == "\\":
                 i += 1
             elif ch == "'":
                 state = "code"
@@ -57,7 +57,7 @@ def _matching_delimiter(source, opening, left, right):
 
 def _find_switches(source):
     found = []
-    pattern = re.compile(r"\\bswitch\\s*\\(")
+    pattern = re.compile(r"\bswitch\s*\(")
     for match in pattern.finditer(source):
         paren_open = source.find("(", match.start(), match.end())
         paren_close = _matching_delimiter(source, paren_open, "(", ")")
@@ -78,11 +78,11 @@ def _top_level_case_labels(body):
     line_start = 0
     while i < len(body):
         if i == line_start and brace_depth == 0 and state == "code":
-            line_end = body.find("\\n", i)
+            line_end = body.find("\n", i)
             if line_end < 0:
                 line_end = len(body)
             line = body[i:line_end]
-            marker = re.match(r"(\\s*)(case\\s+([^:\\n]+)|default)\\s*:", line)
+            marker = re.match(r"(\s*)(case\s+([^:\n]+)|default)\s*:", line)
             if marker:
                 label_start = i + len(marker.group(1))
                 label_end = i + marker.end()
@@ -93,19 +93,19 @@ def _top_level_case_labels(body):
         ch = body[i]
         nxt = body[i + 1] if i + 1 < len(body) else ""
         if state == "line_comment":
-            if ch == "\\n":
+            if ch == "\n":
                 state = "code"
         elif state == "block_comment":
             if ch == "*" and nxt == "/":
                 state = "code"
                 i += 1
         elif state == "string":
-            if ch == "\\\\":
+            if ch == "\\":
                 i += 1
             elif ch == '"':
                 state = "code"
         elif state == "char":
-            if ch == "\\\\":
+            if ch == "\\":
                 i += 1
             elif ch == "'":
                 state = "code"
@@ -132,7 +132,7 @@ def _top_level_case_labels(body):
                 bracket_depth += 1
             elif ch == "]":
                 bracket_depth -= 1
-        if ch == "\\n":
+        if ch == "\n":
             line_start = i + 1
         i += 1
     return labels
@@ -141,13 +141,13 @@ def _strip_switch_breaks(body):
     # These upstream resource-ID switches are UI dispatchers; each break exits
     # the switch, not an inner loop. Remove those terminators after converting
     # the dispatcher to if/else. Nested switch expressions are retained.
-    return re.sub(r"\\bbreak\\s*;", "", body)
+    return re.sub(r"\bbreak\s*;", "", body)
 
 def _convert_one_resource_switch(source, switch):
     start, paren_open, paren_close, brace_open, brace_close = switch
     body = source[brace_open + 1:brace_close]
     labels = _top_level_case_labels(body)
-    if not any(re.search(r"\\bR\\.id\\.", label[2]) for label in labels):
+    if not any(re.search(r"\bR\.id\.", label[2]) for label in labels):
         return source, False
 
     expr = source[paren_open + 1:paren_close].strip()
@@ -158,7 +158,7 @@ def _convert_one_resource_switch(source, switch):
     for index, (label_start, label_end, label_text) in enumerate(labels):
         next_start = labels[index + 1][0] if index + 1 < len(labels) else len(body)
         case_body = body[label_end:next_start]
-        if not re.sub(r"//[^\\n]*|/\\*[\\s\\S]*?\\*/", "", case_body).strip():
+        if not re.sub(r"//[^\n]*|/\*[\s\S]*?\*/", "", case_body).strip():
             pending_labels.append(label_text)
             continue
         pending_labels.append(label_text)
@@ -186,14 +186,14 @@ def _convert_one_resource_switch(source, switch):
             lines.append("    " + prefix + " (" + " || ".join(comparisons) + ") {")
             emitted_condition = True
         if case_body.strip():
-            lines.extend("        " + line if line else "" for line in case_body.strip("\\n").splitlines())
+            lines.extend("        " + line if line else "" for line in case_body.strip("\n").splitlines())
         lines.append("    }")
     if not emitted_condition and not emitted_default:
         return source, False
     if emitted_default and not emitted_condition:
         raise SystemExit("Invalid default-only resource switch adaptation")
     lines.append("}")
-    replacement = "\\n".join(lines)
+    replacement = "\n".join(lines)
     return source[:brace_open] + replacement + source[brace_close + 1:], True
 
 def convert_resource_switches(source):
@@ -204,7 +204,7 @@ def convert_resource_switches(source):
         target = None
         for candidate in reversed(switches):
             body = source[candidate[3] + 1:candidate[4]]
-            if any(re.search(r"\\bR\\.id\\.", label[2])
+            if any(re.search(r"\bR\.id\.", label[2])
                    for label in _top_level_case_labels(body)):
                 target = candidate
                 break
