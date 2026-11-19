@@ -32,6 +32,7 @@ The initial milestone is a safe, read-only plug-in binary inspector plus format 
 - `docs/integration-architecture-v2.md` — Winlator-based isolated runtime and plug-in integration design.
 - `compatibility/sources.lock.json` — upstream repositories pinned to exact commits with license and integration status.
 - `tools/validate_sources.py` — source pin/license policy validator.
+- `tools/android-device-probe.sh` — read-only CPU/GPU/Vulkan/Android capability report (run with `sh tools/android-device-probe.sh`).
 - `schemas/project-ir.schema.json` — versioned, loss-preserving project interchange contract.
 - `tools/inspect_plugin.py` — read-only PE/ELF/WASM/Mach-O/ZIP classifier.
 - `tests/` — synthetic header tests; no proprietary plug-ins required.
