@@ -162,9 +162,27 @@ public final class AdminActivity extends Activity {
                     "\n封禁账号：" + overview.optInt("bannedCount") +
                     "\n白名单账号：" + overview.optInt("whitelistedCount")));
             content.addView(button("账号列表 / 白名单 / 封号", v -> loadAccounts()));
+            boolean whitelistMode = overview.optBoolean("whitelistMode", false);
+            content.addView(button(whitelistMode ? "关闭注册白名单模式" : "开启注册白名单模式",
+                    v -> promptWhitelistMode(!whitelistMode)));
             content.addView(button("修改管理员密码", v -> showChangePassword(false)));
             content.addView(button("退出管理员登录", v -> logout()));
         });
+    }
+
+    private void promptWhitelistMode(boolean enabled) {
+        EditText reason = field("变更原因（必填）");
+        new AlertDialog.Builder(this).setTitle(enabled ? "开启白名单注册" : "关闭白名单注册")
+                .setMessage(enabled ? "开启后新注册账号需要管理员加入白名单才能登录。" : "关闭后新注册账号自动激活。已有封禁仍然有效。")
+                .setView(reason).setNegativeButton("取消", null)
+                .setPositiveButton("确认", (d,w) -> {
+                    String why = reason.getText().toString().trim();
+                    if (why.isEmpty()) { message("必须填写操作原因"); return; }
+                    JSONObject body = new JSONObject();
+                    try { body.put("enabled", enabled); body.put("reason", why); }
+                    catch (Exception ignored) {}
+                    post("/admin/whitelist-mode", body, accountToken, x -> loadDashboard());
+                }).show();
     }
 
     private void loadAccounts() {
