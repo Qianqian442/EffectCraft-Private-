@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ae/project-ir.schema.json",
+  "title": "Ae Cross-Platform Project IR",
+  "description": "Loss-preserving interchange model. Unknown source data must be retained in extensions or opaqueSourcePayload.",
+  "type": "object",
+  "required": ["schemaVersion", "project", "compositions"],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "project": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "sourceFormat": { "type": "string" },
+        "sourceVersion": { "type": ["string", "null"] },
+        "width": { "type": ["integer", "null"], "minimum": 1 },
+        "height": { "type": ["integer", "null"], "minimum": 1 },
+        "frameRate": {
+          "type": ["object", "null"],
+          "properties": {
+            "numerator": { "type": "integer", "minimum": 1 },
+            "denominator": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["numerator", "denominator"],
+          "additionalProperties": true
+        },
+        "durationTicks": { "type": ["integer", "null"], "minimum": 0 },
+        "timebase": { "type": ["string", "null"] },
+        "colorSpace": { "type": ["string", "null"] },
+        "bitDepth": { "type": ["integer", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "compositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "layers"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "width": { "type": ["integer", "null"] },
+          "height": { "type": ["integer", "null"] },
+          "durationTicks": { "type": ["integer", "null"] },
+          "layers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "kind"],
+              "properties": {
+                "id": { "type": "string" },
+                "kind": { "type": "string" },
+                "sourceId": { "type": ["string", "null"] },
+                "parentId": { "type": ["string", "null"] },
+                "startTicks": { "type": ["integer", "null"] },
+                "inTicks": { "type": ["integer", "null"] },
+                "outTicks": { "type": ["integer", "null"] },
+                "stretch": { "type": ["number", "null"] },
+                "blendMode": { "type": ["string", "null"] },
+                "transform": { "type": "object" },
+                "keyframes": { "type": "array" },
+                "effects": { "type": "array" },
+                "masks": { "type": "array" },
+                "opaqueSourcePayload": {}
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "assets": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "fonts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "plugins": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "extensions": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}
