@@ -364,7 +364,18 @@ bootstrap_method = """
                 return;
             }
             ContainerManager manager = new ContainerManager(this);
-            if (!manager.getContainers().isEmpty()) return;
+            Container selected = null;
+            for (Container candidate : manager.getContainers()) {
+                if ("未来科技默认容器".equals(candidate.getName())) {
+                    selected = candidate;
+                    break;
+                }
+            }
+            if (selected != null) {
+                getSharedPreferences("future_runtime", MODE_PRIVATE).edit()
+                        .putInt("default_container_id", selected.id).apply();
+                return;
+            }
             try {
                 JSONObject data = new JSONObject();
                 data.put("name", "未来科技默认容器");
@@ -384,6 +395,8 @@ bootstrap_method = """
                         AppUtils.showToast(this, "默认 Windows 容器创建失败，请检查手机剩余空间");
                         return;
                     }
+                    getSharedPreferences("future_runtime", MODE_PRIVATE).edit()
+                            .putInt("default_container_id", container.id).apply();
                     NavigationView navigation = findViewById(R.id.NavigationView);
                     if (navigation != null) {
                         navigation.setCheckedItem(R.id.menu_item_containers);
@@ -404,6 +417,28 @@ if marker not in main_text:
     raise SystemExit("Winlator MainActivity insertion marker not found")
 main_text = main_text.replace(marker, bootstrap_method + marker)
 main_java.write_text(main_text, encoding="utf-8")
+
+# Allow the Future Technology host to start MSI packages through Wine's
+# built-in Windows Installer rather than relying on Android intent handlers.
+display_java = DEST / "src" / "main" / "java" / "com" / "winlator" / "XServerDisplayActivity.java"
+display_text = display_java.read_text(encoding="utf-8")
+old_exec = '''                execPath = WineUtils.unixToDOSPath(intent.getStringExtra("exec_path"), container);
+
+                if (execPath.endsWith(".lnk")) {'''
+new_exec = '''                execPath = WineUtils.unixToDOSPath(intent.getStringExtra("exec_path"), container);
+                String requestedArgs = intent.getStringExtra("exec_args");
+                if (requestedArgs != null && !requestedArgs.trim().isEmpty()) execArgs = " " + requestedArgs.trim();
+                if (execPath.toLowerCase(java.util.Locale.ROOT).endsWith(".msi")) {
+                    String msiPath = execPath;
+                    execPath = "C:\\\\windows\\\\system32\\\\msiexec.exe";
+                    execArgs = " /i \\"" + msiPath + "\\"" + execArgs;
+                }
+
+                if (execPath.endsWith(".lnk")) {'''
+if old_exec not in display_text:
+    raise SystemExit("Winlator exec_path insertion point changed; refusing unsafe modification")
+display_text = display_text.replace(old_exec, new_exec, 1)
+display_java.write_text(display_text, encoding="utf-8")
 
 # Android library R.id fields are intentionally non-final. Rewrite upstream
 # UI switches that used those fields as case labels into equivalent if/else
