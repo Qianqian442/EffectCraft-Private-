@@ -3,6 +3,7 @@ package com.futuretech.main;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -23,6 +24,7 @@ import com.futuretech.shared.TokenVault;
 
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.InputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,6 +36,7 @@ public final class MainActivity extends Activity {
     private TextView runtimeStatus;
     private Button toggleButton;
     private Uri selectedAvatar;
+    private TextView importStatus;
     private static final int PICK_AVATAR = 1002;
     private static final int PICK_FILE = 1001;
 
@@ -98,6 +101,13 @@ public final class MainActivity extends Activity {
         content.addView(deviceInfo);
 
         content.addView(button("导入电脑工程 / Windows 程序", v -> chooseFile()));
+        importStatus = new TextView(this);
+        importStatus.setText("导入文件会先复制到应用私有目录并计算 SHA-256；不会自动执行 EXE 或插件。");
+        importStatus.setTextSize(12);
+        importStatus.setTextColor(0xFF66758C);
+        importStatus.setPadding(0, dp(8), 0, dp(8));
+        content.addView(importStatus);
+        content.addView(button("查看导入记录", v -> showImportedFiles()));
         content.addView(button("注册 / 登录账号", v -> showAccountMenu()));
         content.addView(button("退出登录", v -> logout()));
 
@@ -162,19 +172,87 @@ public final class MainActivity extends Activity {
 
     private void handleIncomingIntent(Intent intent) {
         if (intent == null) return;
-        Uri uri = intent.getData();
-        if (uri == null && intent.getClipData() != null && intent.getClipData().getItemCount() > 0)
-            uri = intent.getClipData().getItemAt(0).getUri();
-        if (uri != null && (Intent.ACTION_VIEW.equals(intent.getAction()) || Intent.ACTION_SEND.equals(intent.getAction())))
-            confirmIncomingFile(uri);
+        java.util.ArrayList<Uri> uris = new java.util.ArrayList<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        addIncomingUri(uris, seen, intent.getData());
+
+        ClipData clip = intent.getClipData();
+        if (clip != null) {
+            for (int i = 0; i < clip.getItemCount(); i++)
+                addIncomingUri(uris, seen, clip.getItemAt(i).getUri());
+        }
+
+        String action = intent.getAction();
+        if (Intent.ACTION_SEND.equals(action)) {
+            Uri stream = null;
+            if (Build.VERSION.SDK_INT >= 33) stream = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+            else {
+                //noinspection deprecation
+                Object value = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (value instanceof Uri) stream = (Uri) value;
+            }
+            addIncomingUri(uris, seen, stream);
+        } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            java.util.ArrayList<Uri> streams = null;
+            if (Build.VERSION.SDK_INT >= 33)
+                streams = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri.class);
+            else {
+                //noinspection deprecation
+                streams = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            }
+            if (streams != null) for (Uri stream : streams) addIncomingUri(uris, seen, stream);
+        }
+
+        for (Uri uri : uris) confirmIncomingFile(uri);
+    }
+
+    private void addIncomingUri(java.util.ArrayList<Uri> uris, java.util.HashSet<String> seen, Uri uri) {
+        if (uri == null) return;
+        String key = uri.toString();
+        if (seen.add(key)) uris.add(uri);
     }
 
     private void confirmIncomingFile(Uri uri) {
         try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
-        catch (Exception ignored) { /* Some providers issue temporary grants only. */ }
-        new AlertDialog.Builder(this).setTitle("收到外部文件")
-                .setMessage("文件：" + displayName(uri) + "\n已取得 Android 文件读取权限。本版本尚未集成完整工程解析器或 Windows 运行组件，因此不会声称文件已经导入或执行。")
-                .setPositiveButton("确定", null).show();
+        catch (Exception ignored) { /* Share providers may grant temporary access only; copy immediately. */ }
+        final String incomingName = displayName(uri);
+        if (importStatus != null) importStatus.setText("正在安全导入：" + incomingName);
+        io.execute(() -> {
+            try {
+                File inbox = new File(getFilesDir(), "imports");
+                PrivateImportStore.ImportedFile imported =
+                        PrivateImportStore.copyFromUri(getContentResolver(), uri, inbox);
+                ui.post(() -> {
+                    String result = imported.summary()
+                            + "\n\n已保存到未来科技的应用私有目录。文件尚未被解析、安装或执行。";
+                    if (importStatus != null) importStatus.setText("最近导入：" + imported.originalName + " · " + imported.kind);
+                    new AlertDialog.Builder(this).setTitle("文件已保存")
+                            .setMessage(result)
+                            .setPositiveButton("查看导入记录", (d, w) -> showImportedFiles())
+                            .setNegativeButton("完成", null).show();
+                });
+            } catch (Exception error) {
+                ui.post(() -> {
+                    if (importStatus != null) importStatus.setText("导入失败：" + incomingName);
+                    toast("导入失败：" + (error.getMessage() == null ? "无法读取文件" : error.getMessage()));
+                });
+            }
+        });
+    }
+
+    private void showImportedFiles() {
+        java.util.ArrayList<String> entries = PrivateImportStore.history(new File(getFilesDir(), "imports"));
+        if (entries.isEmpty()) {
+            new AlertDialog.Builder(this).setTitle("导入记录")
+                    .setMessage("还没有导入文件。可以从 QQ「用其他软件打开」或本机文件选择器导入。")
+                    .setPositiveButton("确定", null).show();
+            return;
+        }
+        new AlertDialog.Builder(this).setTitle("导入记录（最近 100 条）")
+                .setItems(entries.toArray(new String[0]), (d, which) ->
+                        new AlertDialog.Builder(this).setTitle("文件记录").setMessage(entries.get(which))
+                                .setPositiveButton("确定", null).show())
+                .setNegativeButton("关闭", null).show();
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
