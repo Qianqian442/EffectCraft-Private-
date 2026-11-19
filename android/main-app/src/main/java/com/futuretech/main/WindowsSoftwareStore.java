@@ -194,6 +194,89 @@ public final class WindowsSoftwareStore {
         }
     }
 
+    public static JSONObject importVerifiedMarketplaceFile(Context context, File source, String originalName,
+                                                            String expectedSha256) throws Exception {
+        if (source == null || !source.isFile() || source.length() <= 0)
+            throw new IOException("商城下载文件不存在");
+        File inbox = inbox(context);
+        if (!inbox.isDirectory() && !inbox.mkdirs()) throw new IOException("无法创建私有安装包目录");
+        String id = UUID.randomUUID().toString();
+        String extension = extensionOf(originalName == null ? source.getName() : originalName);
+        File partial = new File(inbox, id + ".partial");
+        File stored = new File(inbox, id + extension);
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+        long total = 0L;
+        try (FileInputStream input = new FileInputStream(source);
+             FileOutputStream output = new FileOutputStream(partial)) {
+            byte[] buffer = new byte[128 * 1024];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                if (count == 0) continue;
+                total += count;
+                if (total > 8L * 1024L * 1024L * 1024L)
+                    throw new IOException("商城安装包超过 8 GiB 上限");
+                if (inbox.getUsableSpace() < count + 16L * 1024L * 1024L)
+                    throw new IOException("手机剩余空间不足");
+                digest.update(buffer, 0, count);
+                output.write(buffer, 0, count);
+            }
+            output.getFD().sync();
+        } catch (Exception error) {
+            //noinspection ResultOfMethodCallIgnored
+            partial.delete();
+            throw error;
+        }
+        String actualSha256 = hex(digest.digest());
+        if (expectedSha256 == null || !actualSha256.equalsIgnoreCase(expectedSha256)) {
+            //noinspection ResultOfMethodCallIgnored
+            partial.delete();
+            throw new SecurityException("商城安装包复制后 SHA-256 不匹配");
+        }
+        if (!partial.renameTo(stored)) {
+            //noinspection ResultOfMethodCallIgnored
+            partial.delete();
+            throw new IOException("无法将商城安装包保存到私有目录");
+        }
+        JSONObject record = new JSONObject();
+        try {
+            record.put("id", id);
+            record.put("originalName", originalName == null ? source.getName() : originalName);
+            record.put("kind", extension.equals(".msi") ? "Windows MSI 安装包（已校验）"
+                    : extension.equals(".zip") ? "Windows ZIP 软件包（已校验）"
+                    : "Windows EXE 程序包（已校验）");
+            record.put("sha256", actualSha256);
+            record.put("mimeType", "application/octet-stream");
+            record.put("bytes", total);
+            record.put("storedFile", stored.getName());
+            record.put("importedAt", System.currentTimeMillis());
+        } catch (org.json.JSONException error) {
+            //noinspection ResultOfMethodCallIgnored
+            stored.delete();
+            throw new IOException("无法保存商城下载记录", error);
+        }
+        try {
+            writeAtomic(new File(inbox, id + ".json"), record.toString());
+        } catch (IOException error) {
+            //noinspection ResultOfMethodCallIgnored
+            stored.delete();
+            throw error;
+        }
+        return record;
+    }
+
+    private static String extensionOf(String name) {
+        int dot = name == null ? -1 : name.lastIndexOf('.');
+        if (dot < 0 || dot == name.length() - 1) return ".bin";
+        String ext = name.substring(dot).toLowerCase(Locale.ROOT);
+        return ext.matches("\\\\.[a-z0-9]{1,12}") ? ext : ".bin";
+    }
+
+    private static String hex(byte[] bytes) {
+        StringBuilder out = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) out.append(String.format(Locale.ROOT, "%02x", b & 0xff));
+        return out.toString();
+    }
+
     public static JSONArray installedApps(Context context) {
         File file = installedAppsFile(context);
         if (!file.isFile()) return new JSONArray();
