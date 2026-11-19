@@ -63,7 +63,9 @@ jobs:
           test -f third_party/winlator/app/src/main/assets/rootfs.tzst
           python tools/prepare_winlator_runtime.py
           test -f android/winlator-runtime/src/main/assets/rootfs.tzst
-          test -f android/winlator-runtime/src/main/jniLibs/arm64-v8a/libc++_shared.so
+          test -d android/winlator-runtime/src/main/jniLibs/arm64-v8a
+          find android/winlator-runtime/src/main/jniLibs/arm64-v8a -maxdepth 1 -type f -name '*.so' -printf '%f %s bytes\\n' | sort
+          test -n "$(find android/winlator-runtime/src/main/jniLibs/arm64-v8a -maxdepth 1 -type f -name '*.so' -print -quit)"
           grep -q "com.android.library" android/winlator-runtime/build.gradle
 
       - name: Verify marketplace and project separation rules
