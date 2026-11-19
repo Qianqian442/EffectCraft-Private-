@@ -4,6 +4,7 @@
     <application
         android:allowBackup="false"
         android:label="未来科技管理版"
+        android:icon="@drawable/future_tech_admin_icon"
         android:theme="@style/AdminTheme"
         android:usesCleartextTraffic="false">
         <activity android:name=".AdminActivity" android:exported="true">
