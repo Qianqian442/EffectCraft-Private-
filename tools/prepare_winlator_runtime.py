@@ -259,6 +259,19 @@ if DEST.exists():
     shutil.rmtree(DEST)
 shutil.copytree(UPSTREAM_APP, DEST, ignore=shutil.ignore_patterns(".git", ".DS_Store"))
 
+# The upstream app maps shared storage through a hard-coded standalone package path.
+# Future Technology uses a different application ID and an app-private sandbox.
+app_utils = DEST / "src" / "main" / "java" / "com" / "winlator" / "core" / "AppUtils.java"
+app_utils_text = app_utils.read_text(encoding="utf-8")
+old_downloads = 'public static final String DIRECTORY_DOWNLOADS = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath();'
+old_internal = 'public static final String INTERNAL_STORAGE = "/data/data/com.winlator/storage";'
+if old_downloads not in app_utils_text or old_internal not in app_utils_text:
+    raise SystemExit("Winlator storage path declarations changed; review private-sandbox mapping")
+app_utils_text = app_utils_text.replace(old_downloads, "public static String DIRECTORY_DOWNLOADS;")
+app_utils_text = app_utils_text.replace(old_internal, "public static String INTERNAL_STORAGE;")
+app_utils.write_text(app_utils_text, encoding="utf-8")
+
+
 gradle_path = DEST / "build.gradle"
 gradle = gradle_path.read_text(encoding="utf-8")
 gradle = gradle.replace("apply plugin: 'com.android.application'", "apply plugin: 'com.android.library'")
@@ -334,7 +347,8 @@ if old not in main_text:
     raise SystemExit("Winlator MainActivity permission/bootstrap call changed; review before adapting")
 main_text = main_text.replace(old, "            RootFSInstaller.installIfNeeded(this);\n            ensureFutureTechnologyDefaultContainer();")
 
-imports = """import android.os.Handler;
+imports = """import java.io.File;
+import android.os.Handler;
 import android.os.Looper;
 import org.json.JSONObject;
 import com.winlator.box64.Box64Preset;
@@ -416,6 +430,17 @@ marker="    @Override\n    protected void attachBaseContext(Context newBase) {"
 if marker not in main_text:
     raise SystemExit("Winlator MainActivity insertion marker not found")
 main_text = main_text.replace(marker, bootstrap_method + marker)
+attach_old = marker + "\n        super.attachBaseContext(LocaleHelper.setSystemLocale(newBase));\n    }"
+attach_new = marker + "\n        super.attachBaseContext(LocaleHelper.setSystemLocale(newBase));\n"
+attach_new += "        File privateStorage = new File(newBase.getFilesDir(), \"storage\");\n"
+attach_new += "        File privateDownloads = new File(newBase.getFilesDir(), \"downloads\");\n"
+attach_new += "        privateStorage.mkdirs();\n        privateDownloads.mkdirs();\n"
+attach_new += "        AppUtils.INTERNAL_STORAGE = privateStorage.getAbsolutePath();\n"
+attach_new += "        AppUtils.DIRECTORY_DOWNLOADS = privateDownloads.getAbsolutePath();\n    }"
+if attach_old not in main_text:
+    raise SystemExit("Winlator attachBaseContext body changed; review private-sandbox mapping")
+main_text = main_text.replace(attach_old, attach_new)
+
 main_java.write_text(main_text, encoding="utf-8")
 
 # Allow the Future Technology host to start MSI packages through Wine's
