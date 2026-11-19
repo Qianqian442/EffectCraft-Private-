@@ -38,3 +38,32 @@ INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES('whitelist_mode','fa
 CREATE TABLE IF NOT EXISTS login_rate_limits (
  key_hash TEXT PRIMARY KEY, window_start INTEGER NOT NULL, attempt_count INTEGER NOT NULL
 );
+
+
+CREATE TABLE IF NOT EXISTS software_catalog (
+ id TEXT PRIMARY KEY,
+ category TEXT NOT NULL DEFAULT 'other',
+ name TEXT NOT NULL,
+ publisher TEXT NOT NULL,
+ description TEXT NOT NULL DEFAULT '',
+ version TEXT NOT NULL,
+ architecture TEXT NOT NULL,
+ package_type TEXT NOT NULL CHECK(package_type IN ('EXE','MSI','ZIP')),
+ source_url TEXT NOT NULL,
+ download_url TEXT,
+ sha256 TEXT,
+ expected_bytes INTEGER NOT NULL DEFAULT 0,
+ license TEXT NOT NULL DEFAULT 'unknown',
+ redistribution_allowed INTEGER NOT NULL DEFAULT 0 CHECK(redistribution_allowed IN (0,1)),
+ min_ram_mb INTEGER NOT NULL DEFAULT 0,
+ min_android_api INTEGER NOT NULL DEFAULT 26,
+ gpu_notes TEXT NOT NULL DEFAULT '',
+ compatibility TEXT NOT NULL DEFAULT '尚未验证',
+ icon_url TEXT,
+ is_active INTEGER NOT NULL DEFAULT 0 CHECK(is_active IN (0,1)),
+ featured_rank INTEGER NOT NULL DEFAULT 0,
+ created_at TEXT NOT NULL DEFAULT (datetime('now')),
+ updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_software_catalog_active
+ ON software_catalog(is_active,category,featured_rank,name);
