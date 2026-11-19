@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "FutureTechnology"
-include(":main-app", ":admin-app")
+include(":shared", ":main-app", ":admin-app")
