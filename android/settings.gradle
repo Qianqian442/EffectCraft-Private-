@@ -14,3 +14,9 @@ dependencyResolutionManagement {
 }
 rootProject.name = "FutureTechnology"
 include(":shared", ":main-app", ":admin-app")
+
+def winlatorRuntimeDir = file("winlator-runtime")
+if (winlatorRuntimeDir.isDirectory()) {
+    include(":winlator-runtime")
+    project(":winlator-runtime").projectDir = winlatorRuntimeDir
+}
