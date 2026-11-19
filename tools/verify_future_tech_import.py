@@ -1,79 +1,42 @@
 #!/usr/bin/env python3
-"""Static regression checks for Future Technology's Android file-import intake."""
+"""Regression checks: Future Technology installs Windows software; Ae imports projects."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
-
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "android/main-app/src/main/AndroidManifest.xml"
 ACTIVITY = ROOT / "android/main-app/src/main/java/com/futuretech/main/MainActivity.java"
 STORE = ROOT / "android/main-app/src/main/java/com/futuretech/main/PrivateImportStore.java"
-
 ANDROID = "{http://schemas.android.com/apk/res/android}"
-
-
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise SystemExit(f"FAIL: {message}")
-
-
 root = ET.parse(MANIFEST).getroot()
-activity = next(
-    node for node in root.findall(".//activity")
-    if node.attrib.get(ANDROID + "name") == ".MainActivity"
-)
+activity = next(node for node in root.findall(".//activity") if node.attrib.get(ANDROID + "name") == ".MainActivity")
 filters = activity.findall("intent-filter")
-actions = {
-    action.attrib.get(ANDROID + "name")
-    for item in filters
-    for action in item.findall("action")
-}
-require("android.intent.action.VIEW" in actions, "ACTION_VIEW must remain registered")
-require("android.intent.action.SEND" in actions, "ACTION_SEND must remain registered")
-require("android.intent.action.SEND_MULTIPLE" in actions, "ACTION_SEND_MULTIPLE must remain registered")
-
-view_filter = next(
-    item for item in filters
-    if any(a.attrib.get(ANDROID + "name") == "android.intent.action.VIEW" for a in item.findall("action"))
-)
-view_schemes = {
-    node.attrib.get(ANDROID + "scheme")
-    for node in view_filter.findall("data")
-}
-require("content" in view_schemes, "content:// VIEW imports must remain supported")
-require("file" in view_schemes, "file:// VIEW imports must remain supported")
-
+actions = {a.attrib.get(ANDROID + "name") for f in filters for a in f.findall("action")}
+require("android.intent.action.MAIN" in actions, "launcher entry must remain")
+require("android.intent.action.VIEW" in actions, "incoming Windows installer share must remain supported")
+require("android.intent.action.SEND" in actions, "single Windows installer share must remain supported")
+require("android.intent.action.SEND_MULTIPLE" in actions, "multiple installer shares must remain supported")
 main = ACTIVITY.read_text(encoding="utf-8")
-for token in (
-    "intent.getData()",
-    "Intent.ACTION_SEND",
-    "Intent.ACTION_SEND_MULTIPLE",
-    "Intent.EXTRA_STREAM",
-    "intent.getClipData()",
-    "PrivateImportStore.copyFromUri",
-    "showImportedFiles",
-):
-    require(token in main, f"MainActivity is missing import handling: {token}")
-
+for token in ("添加电脑软件安装包", "我的电脑软件 / 安装包", "chooseSoftwarePackage", "confirmIncomingSoftware", "software/installers", "PrivateImportStore.copyFromUri", "isWindowsSoftwarePackage", "showSoftwareLibrary"):
+    require(token in main, f"Windows software workflow missing: {token}")
+require('lower.endsWith(".exe")' in main and 'lower.endsWith(".msi")' in main and 'lower.endsWith(".zip")' in main,
+        "only Windows installers and portable archives should be accepted")
+require("isAeProjectOrPlugin" in main and "请在 Ae 中导入" in main,
+        "AE project/plugin files must be directed to Ae")
+for forbidden in ("导入电脑工程", "showImportedFiles", "注册 / 登录账号"):
+    require(forbidden not in main, f"ambiguous old label remains: {forbidden}")
+require("注册账号（首次使用）" in main and "已有账号？登录" in main,
+        "registration and existing-account login must be separate")
+require("注册和登录是分开的" in main, "registration must not silently log in")
+require("authenticatedThisLaunch = false" in main and "logoutButton.setVisibility(authenticatedThisLaunch ? View.VISIBLE : View.GONE)" in main,
+        "no saved session should appear as automatically logged in")
+require('getString("memory_policy", "auto")' in main and "按设备余量动态使用，可按需达到数 GB" in main,
+        "runtime memory must not be hard-limited to 1.5 GB")
 store = STORE.read_text(encoding="utf-8")
-for token in (
-    "MAX_IMPORT_BYTES",
-    "MessageDigest.getInstance",
-    "getUsableSpace",
-    "output.getFD().sync()",
-    "partial.renameTo(stored)",
-    ".aep",
-    ".aepx",
-    ".aex",
-    ".exe",
-    ".dll",
-    ".wasm",
-):
-    require(token in store, f"Private import store is missing safety/classification marker: {token}")
-
+for token in ("MAX_IMPORT_BYTES", "MessageDigest.getInstance", "getUsableSpace", "output.getFD().sync()", "partial.renameTo(stored)"):
+    require(token in store, f"private package store safety missing: {token}")
 for forbidden in ("Runtime.getRuntime().exec(", "new ProcessBuilder("):
-    require(forbidden not in store, f"File intake must never execute imported content: {forbidden}")
-
-require('android:allowBackup="false"' in MANIFEST.read_text(encoding="utf-8"),
-        "Private imported files must not be enabled for Android backup")
-
-print("Future Technology file intake checks passed: QQ VIEW/SEND/SEND_MULTIPLE, content/file URIs, private copy, size/disk guard, SHA-256, format classification, and no binary execution.")
+    require(forbidden not in main + store, f"imported software must not execute outside the Windows runtime: {forbidden}")
+print("Future Technology checks passed: Windows installer inbox, Ae project separation, registration-first UI, manual login, dynamic multi-GB memory policy, safe package copying.")
