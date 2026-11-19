@@ -268,7 +268,7 @@ public final class WindowsSoftwareStore {
         int dot = name == null ? -1 : name.lastIndexOf('.');
         if (dot < 0 || dot == name.length() - 1) return ".bin";
         String ext = name.substring(dot).toLowerCase(Locale.ROOT);
-        return ext.matches("\\\\.[a-z0-9]{1,12}") ? ext : ".bin";
+        return ext.matches("\\.[a-z0-9]{1,12}") ? ext : ".bin";
     }
 
     private static String hex(byte[] bytes) {
