@@ -1,0 +1,46 @@
+name: Validate 未来科技 account server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/validate-future-technology-server.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Worker JavaScript syntax
+        working-directory: server
+        run: node --check worker.js
+      - name: Validate D1 SQL schema with SQLite parser
+        working-directory: server
+        run: |
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          sql = Path("migrations/0001_init.sql").read_text(encoding="utf-8")
+          db = sqlite3.connect(":memory:")
+          db.executescript(sql)
+          required = {"admins", "users", "allowlist", "bans", "sessions", "audit_log"}
+          actual = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          missing = required - actual
+          assert not missing, f"Missing tables: {sorted(missing)}"
+          print("D1 schema SQL parsed successfully; all account/security tables exist.")
+          PY
+      - name: Ensure the bootstrap password is never hardcoded
+        working-directory: server
+        run: |
+          grep -Fq 'env.ADMIN_BOOTSTRAP_PASSWORD' worker.js
+          ! grep -Eq 'qw123456789erasrt|qw1234567eras' worker.js ../android/**/*.java
+          echo "Bootstrap password is read only from a private server secret."
