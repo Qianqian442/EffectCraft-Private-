@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'android/**'
+      - 'server/cloudflare/**'
       - '.github/workflows/build-future-technology.yml'
   workflow_dispatch:
 
