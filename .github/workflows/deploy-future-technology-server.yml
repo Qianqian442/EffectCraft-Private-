@@ -20,12 +20,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           FUTURE_TECH_D1_DATABASE_ID: ${{ secrets.FUTURE_TECH_D1_DATABASE_ID }}
           FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD }}
+          FUTURE_TECH_WORKER_URL: ${{ vars.FUTURE_TECH_WORKER_URL }}
         run: |
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
           test -n "$FUTURE_TECH_D1_DATABASE_ID"
           test "${#FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD}" -ge 12
+          test -n "$FUTURE_TECH_WORKER_URL"
 
       - name: Install pinned Wrangler
         working-directory: server
@@ -67,4 +69,4 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 \
-            "https://future-tech-account-api.${{ github.repository_owner }}.workers.dev/health"
+            "${{ vars.FUTURE_TECH_WORKER_URL }}/health"
