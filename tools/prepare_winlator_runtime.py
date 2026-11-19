@@ -295,6 +295,7 @@ tree = ET.parse(DEST / "src" / "main" / "AndroidManifest.xml")
 root = tree.getroot()
 root.attrib.pop("package", None)
 android = "{http://schemas.android.com/apk/res/android}"
+ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
 application = root.find("application")
 if application is None:
     raise SystemExit("Winlator manifest has no application element")
