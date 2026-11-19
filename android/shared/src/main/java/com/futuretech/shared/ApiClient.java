@@ -19,9 +19,14 @@ public final class ApiClient {
                                      JSONObject body, String bearerToken) throws Exception {
         if (baseUrl == null || baseUrl.trim().isEmpty())
             throw new IllegalStateException("服务器地址尚未配置，请先完成服务器部署。");
-        String apiPath = path.startsWith("/api/v1/") ? path
+        String normalizedBase = baseUrl.trim().replaceAll("/+$", "");
+        // Accept both the Worker origin and an origin already ending in /api/v1.
+        // This avoids accidentally constructing /api/v1/api/v1 when following the setup guide.
+        if (normalizedBase.endsWith("/api/v1"))
+            normalizedBase = normalizedBase.substring(0, normalizedBase.length() - "/api/v1".length());
+        String apiPath = (path.equals("/api/v1") || path.startsWith("/api/v1/")) ? path
                 : "/api/v1" + (path.startsWith("/") ? path : "/" + path);
-        URL url = new URL(baseUrl.trim().replaceAll("/+$", "") + apiPath);
+        URL url = new URL(normalizedBase + apiPath);
         if (!"https".equalsIgnoreCase(url.getProtocol()))
             throw new SecurityException("账户接口只允许 HTTPS 连接。");
         HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
