@@ -2,7 +2,7 @@
 
 This repository contains two separate Android applications and the account server for the Future Technology Windows-compatibility project.
 
-- **未来科技** — user APK, Ae-style QQ/WeChat registration, photo-picker avatar, CPU/GPU/Vulkan/storage capability report, QQ `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` import intake, private file inbox, and app-private Windows compatibility runtime control surface.
+- **未来科技** — user APK for importing/installing Windows desktop software inside an app-private compatibility container, showing installed apps on an in-app desktop, and creating shortcuts after installation. AE project imports belong to Ae.
 - **未来科技管理版** — administrator APK, online login, forced password change, account overview, whitelist, bans/unbans, and audit interface.
 
 ## Security and password lifecycle
@@ -21,7 +21,7 @@ This repository contains two separate Android applications and the account serve
 - `Future-Technology.apk`
 - `Future-Technology-Admin.apk`
 
-The workflow verifies ZIP integrity, application package IDs, APK signatures, and uploads both as a GitHub Actions artifact. These are development candidates until the account server is deployed and the Windows runtime has been integrated and device-tested.
+The workflow checks the Windows software installer intake, AE project separation, manual registration/login and dynamic multi-GB memory policy, then verifies APK integrity, package IDs, APK signatures and uploads both as a GitHub Actions artifact. These are development candidates until the account server is deployed and the Windows runtime has been integrated and device-tested.
 
 The account Worker and D1 schema are checked by `.github/workflows/validate-future-technology-server.yml`.
 
@@ -59,9 +59,9 @@ The repository now contains separate Android app modules for:
 - `android/shared` — HTTPS API client, Android Keystore token vault, and avatar input helpers.
 - `server/cloudflare` — selected Cloudflare Workers + D1 + R2 account backend starter.
 
-The latest main APK and admin APK have a successful debug build, package/signature verification, and QQ file-import intake compilation in [GitHub Actions run #44522729009](https://github.com/Qianqian442/EffectCraft-Private-/actions/runs/44522729009). The outputs are debug-signed review candidates, not production releases. Static import-safety checks are also added to the build workflow. The account server has not been deployed, and no real account login or ban/allowlist action has been tested against a live server.
+The latest main APK and admin APK have a successful debug build, package/signature verification, and Windows software package intake compilation in [GitHub Actions run #44522729009](https://github.com/Qianqian442/EffectCraft-Private-/actions/runs/44522729009). The outputs are debug-signed review candidates, not production releases. Static import-safety checks are also added to the build workflow. The account server has not been deployed, and no real account login or ban/allowlist action has been tested against a live server.
 
-**The Windows compatibility runtime is not yet integrated into either APK.** The current one-tap screen is a UI shell and device-info view; it does not yet start Windows software. Do not describe the current APKs as working Windows compatibility builds.
+**The Windows compatibility runtime is not yet integrated into either APK.** The current build can safely copy supported Windows installer packages into a private pending-install queue, but the actual Wine/Box64/Box86 engine is not yet integrated; installation, app discovery, in-app desktop icons and software launching are therefore not yet functional. Do not describe the current APKs as working Windows compatibility builds.
 
 ### First application integration target: Ae
 
