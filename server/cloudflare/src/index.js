@@ -326,6 +326,15 @@ async function route(request, env) {
     if (!session) session=await auth(request,env);
     return reply({available:false,components:[],message:"Windows 兼容运行组件尚未发布"});
   }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/marketplace/catalog") {
+    const query = String(url.searchParams.get("q") || "").trim().slice(0, 80);
+    const category = String(url.searchParams.get("category") || "").trim().slice(0, 32);
+    const rows = await env.DB.prepare(
+      "SELECT id,category,name,publisher,description,version,architecture,package_type AS packageType,source_url AS sourceUrl,download_url AS downloadUrl,sha256,expected_bytes AS expectedBytes,license,redistribution_allowed AS redistributionAllowed,min_ram_mb AS minRamMb,min_android_api AS minAndroidApi,gpu_notes AS gpuNotes,compatibility,icon_url AS iconUrl,updated_at AS updatedAt FROM software_catalog WHERE is_active=1 AND (?='' OR category=?) AND (?='' OR name LIKE ? OR publisher LIKE ? OR description LIKE ?) ORDER BY featured_rank DESC,name COLLATE NOCASE LIMIT 200"
+    ).bind(category, category, query, '%' + query + '%', '%' + query + '%', '%' + query + '%').all();
+    return reply({catalogVersion:1,items:rows.results || [],generatedAt:now()});
+  }
   if (request.method==="POST" && url.pathname==="/api/v1/runtime/session") {
     if (!session) session=await auth(request,env);
     return reply({available:false,status:"not_integrated",message:"Windows 兼容运行组件尚未完成构建与设备验证"},409);
