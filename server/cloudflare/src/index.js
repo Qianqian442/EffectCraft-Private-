@@ -22,6 +22,12 @@ function fromB64url(value) {
 function randomBytes(size) { const b = new Uint8Array(size); crypto.getRandomValues(b); return b; }
 function randomId() { return crypto.randomUUID(); }
 async function sha256(value) { return b64url(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(value)))); }
+function constantTimeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i=0;i<a.length;i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 async function hashPassword(password, salt, env) {
   const iterations = Math.max(310000, Number(env.PASSWORD_HASH_ITERATIONS || 600000));
   const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
@@ -143,7 +149,7 @@ async function login(body, request, env) {
   if (!await limited(env.DB, ip + ":" + id.toLowerCase())) throw new ApiError(429, "登录尝试过多，请稍后再试");
   const account = await env.DB.prepare("SELECT * FROM accounts WHERE qq_id=? OR wechat_id=? LIMIT 1").bind(id, id).first();
   if (!account) throw new ApiError(401, "账号或密码不正确");
-  if (await hashPassword(body.password, account.password_salt, env) !== account.password_hash)
+  if (!constantTimeEqual(await hashPassword(body.password, account.password_salt, env), account.password_hash))
     throw new ApiError(401, "账号或密码不正确");
   if (account.status === "banned") throw new ApiError(403, "账号已被封禁");
   if (account.status !== "active") throw new ApiError(403, "账号尚未获准使用");
@@ -191,7 +197,7 @@ async function register(body, env) {
 async function changePassword(session, body, env) {
   if (typeof body.currentPassword !== "string" || typeof body.newPassword !== "string") throw new ApiError(400, "请输入当前密码和新密码");
   if (body.newPassword.length < 12 || body.newPassword.length > 256) throw new ApiError(400, "新密码至少 12 位");
-  if (await hashPassword(body.currentPassword, session.account.password_salt, env) !== session.account.password_hash)
+  if (!constantTimeEqual(await hashPassword(body.currentPassword, session.account.password_salt, env), session.account.password_hash))
     throw new ApiError(401, "当前密码不正确");
   const pw = await newPasswordHash(body.newPassword, env), t = now();
   await env.DB.prepare("UPDATE accounts SET password_salt=?,password_hash=?,must_change_password=0,updated_at=? WHERE id=?")
@@ -205,9 +211,9 @@ async function changePassword(session, body, env) {
 async function refresh(body, env) {
   if (!body.refreshToken) throw new ApiError(400, "缺少刷新令牌");
   const hash = await sha256(body.refreshToken);
-  const row = await env.DB.prepare("SELECT s.*,a.role,a.status,a.is_whitelisted FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.refresh_hash=?")
+  const row = await env.DB.prepare("SELECT s.*,a.role,a.status,a.is_whitelisted,a.must_change_password FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.refresh_hash=?")
     .bind(hash).first();
-  if (!row || row.revoked_at || Date.parse(row.expires_at)<=Date.now() || row.status!=="active") throw new ApiError(401,"刷新令牌无效或已失效");
+  if (!row || row.revoked_at || Date.parse(row.expires_at)<=Date.now() || row.status!=="active" || row.must_change_password) throw new ApiError(401,"刷新令牌无效或已失效，请使用当前密码重新登录");
   const whitelist = (await getSetting(env.DB,"whitelist_mode","false"))==="true";
   if (whitelist && !row.is_whitelisted) throw new ApiError(403,"账号尚未加入白名单");
   const next = b64url(randomBytes(48)), nextHash = await sha256(next), t = now();
@@ -289,6 +295,13 @@ async function route(request, env) {
   if (request.method==="OPTIONS") return new Response(null,{status:204,headers:{"access-control-allow-origin":"*","access-control-allow-methods":"GET,POST,DELETE,OPTIONS","access-control-allow-headers":"authorization,content-type"}});
   if (request.method==="GET" && url.pathname==="/api/v1/health") return reply({ok:true,service:"future-tech-account-api",time:now()});
   if (!env.DB) throw new ApiError(503,"D1 数据库尚未绑定");
+  if (request.method==="GET" && url.pathname.startsWith("/api/v1/avatars/")) {
+    if (!env.AVATARS) throw new ApiError(404,"头像存储未配置");
+    const key = url.pathname.slice("/api/v1/".length);
+    const object = await env.AVATARS.get(key);
+    if (!object) throw new ApiError(404,"头像不存在");
+    return new Response(object.body,{headers:{"content-type":object.httpMetadata && object.httpMetadata.contentType ? object.httpMetadata.contentType : "application/octet-stream","cache-control":"public, max-age=86400","x-content-type-options":"nosniff"}});
+  }
   if (request.method==="POST" && url.pathname==="/api/v1/auth/register") return reply(await register(await bodyJson(request),env),201);
   if (request.method==="POST" && url.pathname==="/api/v1/auth/login") return reply(await login(await bodyJson(request),request,env));
   if (request.method==="POST" && url.pathname==="/api/v1/auth/refresh") return reply(await refresh(await bodyJson(request),env));
