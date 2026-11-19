@@ -20,6 +20,8 @@ jobs:
           python-version: '3.12'
       - name: Compile inspector and test scripts
         run: python -m py_compile tools/inspect_plugin.py tools/validate_sources.py tests/test_inspect_plugin.py tests/test_sources_lock.py
+      - name: Syntax-check Android device probe
+        run: sh -n tools/android-device-probe.sh
       - name: Run binary-header tests
         run: python -m unittest discover -s tests -v
       - name: Validate pinned source registry and licensing policy
