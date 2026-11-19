@@ -20,7 +20,7 @@ class InspectPluginTests(unittest.TestCase):
         struct.pack_into("<I", header, 0x3C, 0x40)
         header[0x40:0x44] = b"PE\0\0"
         struct.pack_into("<H", header, 0x44, 0x8664)
-        struct.pack_into("<H", header, 0x40 + 4 + 16, 0x20B)
+        struct.pack_into("<H", header, 0x40 + 24, 0x20B)
         result = inspect(self.make_file(bytes(header), ".aex"))
         self.assertEqual(result["format"], "PE")
         self.assertEqual(result["architecture"], "x86_64")
