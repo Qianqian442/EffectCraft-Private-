@@ -16,6 +16,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -71,6 +72,14 @@ public final class MainActivity extends Activity {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(content);
+
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.future_tech_icon);
+        logo.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(112), dp(112));
+        logoParams.gravity = Gravity.CENTER_HORIZONTAL;
+        logoParams.topMargin = dp(8);
+        content.addView(logo, logoParams);
 
         TextView title = new TextView(this);
         title.setText("未来科技");
