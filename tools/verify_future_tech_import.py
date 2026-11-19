@@ -50,7 +50,7 @@ require('button("打开电脑应用商城"' in main, "main app must expose the c
 require('android:name=".ComputerMarketplaceActivity"' in MANIFEST.read_text(encoding="utf-8"),
         "marketplace activity must be registered")
 marketplace = MARKETPLACE_ACTIVITY.read_text(encoding="utf-8")
-for token in ("电脑应用商城", "/marketplace/catalog", "DownloadManager", "setDestinationUri",
+for token in ("电脑应用商城", "/marketplace/catalog", "DownloadManager", "setDestinationInExternalFilesDir",
               "SHA-256", "expectedBytes", "STATUS_SUCCESSFUL", "computer_marketplace_icon"):
     require(token in marketplace, f"marketplace/download verification missing: {token}")
 require("当前 Windows 兼容安装引擎尚未完成集成" in marketplace,
