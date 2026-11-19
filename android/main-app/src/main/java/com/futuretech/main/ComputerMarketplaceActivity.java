@@ -342,6 +342,7 @@ public final class ComputerMarketplaceActivity extends Activity {
             metadata.put("path", target.getAbsolutePath());
             metadata.put("expectedBytes", item.expectedBytes);
             metadata.put("sha256", item.sha256.toLowerCase(Locale.ROOT));
+            metadata.put("packageType", item.packageType);
             getSharedPreferences("marketplace_downloads", MODE_PRIVATE).edit()
                     .putString("download." + id, metadata.toString()).apply();
             status.setText("正在下载 " + item.name + "，文件保存在手机本地存储…");
@@ -415,7 +416,7 @@ public final class ComputerMarketplaceActivity extends Activity {
                 String digest = sha256(file);
                 if (!digest.equalsIgnoreCase(metadata.getString("sha256")))
                     throw new SecurityException("SHA-256 校验失败，文件可能损坏或被替换");
-                String packageName = metadata.optString("name", file.getName()) + extensionFor(file.getName());
+                String packageName = metadata.optString("name", file.getName()) + extensionFor(metadata.optString("packageType"));
                 WindowsSoftwareStore.importVerifiedMarketplaceFile(this, file, packageName, digest);
                 getSharedPreferences("marketplace_downloads", MODE_PRIVATE).edit()
                         .putString("verified." + id, metadata.toString()).remove("download." + id).apply();
