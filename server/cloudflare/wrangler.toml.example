@@ -1,0 +1,22 @@
+name = "future-tech-account-api"
+main = "src/index.js"
+compatibility_date = "2026-11-19"
+
+[vars]
+ACCESS_TOKEN_TTL_SECONDS = "900"
+REFRESH_TOKEN_TTL_SECONDS = "2592000"
+PASSWORD_HASH_ITERATIONS = "600000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "future-tech-accounts"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "AVATARS"
+bucket_name = "future-tech-avatars"
+
+# Configure privately with Wrangler; never put secrets here:
+# wrangler secret put JWT_SECRET
+# wrangler secret put ADMIN_BOOTSTRAP_ACCOUNT
+# wrangler secret put ADMIN_BOOTSTRAP_PASSWORD
