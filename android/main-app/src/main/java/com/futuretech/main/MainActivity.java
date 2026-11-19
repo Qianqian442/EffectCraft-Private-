@@ -290,9 +290,15 @@ public final class MainActivity extends Activity {
         if (BuildConfig.API_BASE_URL.isEmpty()) { toast("账号服务器尚未部署，暂时不能注册或登录"); return; }
         io.execute(() -> {
             try {
+                if ("/auth/register".equals(path) && selectedAvatar != null) {
+                    body.put("avatarBase64", com.futuretech.shared.AvatarEncoder.readBase64(getContentResolver(), selectedAvatar));
+                    String mime = getContentResolver().getType(selectedAvatar);
+                    if (mime != null) body.put("avatarMimeType", mime);
+                }
                 JSONObject result = ApiClient.request(BuildConfig.API_BASE_URL, "POST", path, body, null);
                 String token = result.optString("accessToken", "");
-                if (!token.isEmpty()) TokenVault.save(this, token);
+                String refresh = result.optString("refreshToken", "");
+                if (!token.isEmpty()) TokenVault.saveSession(this, token, refresh);
                 String state = result.optString("accountStatus", "active");
                 ui.post(() -> new AlertDialog.Builder(this).setTitle(success)
                         .setMessage("服务器账户状态：" + state + (result.optBoolean("whitelistRequired", false) ? "\n账号需要管理员白名单批准。" : ""))
