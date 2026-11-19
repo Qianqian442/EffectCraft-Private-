@@ -6,6 +6,9 @@ import android.app.AlertDialog;
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
 import android.content.ClipData;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -26,9 +29,12 @@ import com.futuretech.shared.AvatarEncoder;
 import com.futuretech.shared.TokenVault;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -45,6 +51,8 @@ public final class MainActivity extends Activity {
     private boolean authenticatedThisLaunch = false;
     private static final int PICK_AVATAR = 1002;
     private static final int PICK_SOFTWARE = 1001;
+    private static final String ACTION_LAUNCH_WINDOWS_APP = "com.futuretech.main.action.RUN_WINDOWS_APP";
+    private static final String EXTRA_WINDOWS_APP_ID = "futuretech_windows_app_id";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -52,13 +60,26 @@ public final class MainActivity extends Activity {
         buildUi();
         updateDeviceInfo();
         updateSessionControls();
-        handleIncomingIntent(getIntent());
+        if (!handleInstalledAppShortcut(getIntent())) handleIncomingIntent(getIntent());
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handleIncomingIntent(intent);
+        if (!handleInstalledAppShortcut(intent)) handleIncomingIntent(intent);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        refreshRuntimeStatus();
+    }
+
+    private void refreshRuntimeStatus() {
+        int id = runtimeContainerId();
+        boolean ready = runtimeReady(id);
+        if (runtimeStatus != null)
+            runtimeStatus.setText(ready ? "兼容环境：已初始化（默认 Windows 容器 " + id + "）" : "兼容环境：尚未初始化");
+        if (toggleButton != null) toggleButton.setText(ready ? "打开 Windows 兼容环境" : "开启兼容环境");
     }
 
     private void buildUi() {
@@ -128,6 +149,8 @@ public final class MainActivity extends Activity {
         softwareStatus.setPadding(0, dp(8), 0, dp(8));
         content.addView(softwareStatus);
         content.addView(button("我的电脑软件 / 安装包", v -> showSoftwareLibrary()));
+        content.addView(button("已安装 Windows 软件", v -> showInstalledWindowsApps()));
+        content.addView(button("扫描已安装软件 / 创建手机桌面图标", v -> scanInstalledApps()));
         content.addView(button("运行内存设置", v -> showRuntimeMemorySettings()));
 
         accountStatus = new TextView(this);
@@ -296,8 +319,7 @@ public final class MainActivity extends Activity {
                         softwareStatus.setText("已添加安装包：" + imported.originalName + "（尚未安装）");
                     new AlertDialog.Builder(this).setTitle("电脑软件安装包已添加")
                             .setMessage(imported.summary()
-                                    + "\n\n当前 APK 还没有集成 Wine / Box64 / Box86 完整运行引擎，因此这里只完成安全保存，尚未安装或运行软件。"
-                                    + "运行引擎集成后，下一步会在兼容环境中安装，并把已安装软件加入电脑桌面。")
+                                    + "\n\n安装包已安全保存到未来科技的私有目录。打开“我的电脑软件 / 安装包”，即可将它复制到 Windows 容器并启动安装或运行。")
                             .setPositiveButton("查看软件包", (d, w) -> showSoftwareLibrary())
                             .setNegativeButton("完成", null).show();
                 });
@@ -311,22 +333,257 @@ public final class MainActivity extends Activity {
     }
 
     private void showSoftwareLibrary() {
-        File inbox = new File(getFilesDir(), "software/installers");
-        java.util.ArrayList<String> entries = PrivateImportStore.history(inbox);
+        File inbox = WindowsSoftwareStore.inbox(this);
+        JSONArray imported = WindowsSoftwareStore.importedPackages(inbox);
+        JSONArray installed = WindowsSoftwareStore.installedApps(this);
+        ArrayList<JSONObject> entries = new ArrayList<>();
+        ArrayList<String> labels = new ArrayList<>();
+        for (int i = 0; i < imported.length(); i++) {
+            JSONObject item = imported.optJSONObject(i);
+            if (item == null) continue;
+            item.put("_catalogType", "import");
+            entries.add(item);
+            labels.add("待安装 · " + item.optString("originalName", "未知软件包"));
+        }
+        for (int i = 0; i < installed.length(); i++) {
+            JSONObject item = installed.optJSONObject(i);
+            if (item == null) continue;
+            item.put("_catalogType", "installed");
+            entries.add(item);
+            labels.add("已添加 · " + item.optString("name", "Windows 软件"));
+        }
         if (entries.isEmpty()) {
             new AlertDialog.Builder(this).setTitle("我的电脑软件")
-                    .setMessage("还没有添加电脑软件安装包。\n\n支持 Windows .exe / .msi 安装包和 .zip 便携软件包。安装成功后，软件名称和图标会出现在未来科技的电脑桌面；可按需创建快捷图标。")
+                    .setMessage("还没有添加电脑软件。可以导入 .exe / .msi 安装包，或导入 .zip 便携软件包。安装后可扫描程序并添加到手机系统桌面。")
                     .setPositiveButton("添加软件", (d, w) -> chooseSoftwarePackage()).show();
             return;
         }
-        String[] rows = new String[entries.size()];
-        for (int i = 0; i < entries.size(); i++) rows[i] = "待安装 · " + entries.get(i).replace("\n", " · ");
-        new AlertDialog.Builder(this).setTitle("软件安装包（待安装）")
-                .setItems(rows, (d, which) -> new AlertDialog.Builder(this).setTitle("软件包详情")
-                        .setMessage(entries.get(which)
-                                + "\n\n状态：已导入，尚未安装。\n安装成功后才能生成真实软件图标和快捷方式。"
-                                + "\n当前兼容运行引擎尚未集成，暂不能启动安装程序。")
-                        .setPositiveButton("确定", null).show())
+        String[] rows = labels.toArray(new String[0]);
+        JSONObject[] data = entries.toArray(new JSONObject[0]);
+        new AlertDialog.Builder(this).setTitle("我的电脑软件")
+                .setItems(rows, (d, which) -> {
+                    JSONObject item = data[which];
+                    if ("installed".equals(item.optString("_catalogType"))) {
+                        launchInstalledWindowsApp(item);
+                    } else {
+                        showPackageActions(item);
+                    }
+                })
+                .setPositiveButton("添加软件", (d, w) -> chooseSoftwarePackage())
+                .setNegativeButton("关闭", null).show();
+    }
+
+    private void showPackageActions(JSONObject record) {
+        String name = record.optString("originalName", "Windows 软件包");
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        String action = lower.endsWith(".zip") ? "解压并选择可运行程序" : "在 Windows 兼容环境中安装 / 运行";
+        new AlertDialog.Builder(this).setTitle(name)
+                .setMessage(record.optString("kind", "Windows 软件包")
+                        + "\n\n文件已保存。启动前会复制到未来科技自己的 Windows 容器，不会交给 Android 系统直接执行。")
+                .setPositiveButton(action, (d, w) -> runImportedPackage(record))
+                .setNegativeButton("取消", null).show();
+    }
+
+    private int runtimeContainerId() {
+        return getSharedPreferences("future_runtime", MODE_PRIVATE).getInt("default_container_id", -1);
+    }
+
+    private boolean runtimeReady(int containerId) {
+        if (containerId <= 0) return false;
+        File rootfs = new File(getFilesDir(), "rootfs");
+        File version = new File(rootfs, ".winlator/.rfs_version");
+        File container = WindowsSoftwareStore.containerRoot(this, containerId);
+        return version.isFile() && new File(container, ".container").isFile()
+                && WindowsSoftwareStore.driveC(this, containerId).isDirectory();
+    }
+
+    private void showRuntimeRequired() {
+        new AlertDialog.Builder(this).setTitle("先开启 Windows 兼容环境")
+                .setMessage("首次使用需要先初始化 Wine 和 Box64 运行组件并创建默认 Windows 容器。初始化完成后，再从这里启动软件安装程序。")
+                .setPositiveButton("开启兼容环境", (d, w) -> toggleRuntime())
+                .setNegativeButton("稍后", null).show();
+    }
+
+    private void runImportedPackage(JSONObject record) {
+        int containerId = runtimeContainerId();
+        if (!runtimeReady(containerId)) {
+            showRuntimeRequired();
+            return;
+        }
+        try {
+            File source = WindowsSoftwareStore.resolveImportedFile(WindowsSoftwareStore.inbox(this), record);
+            String id = record.optString("id", "");
+            if (id.isEmpty()) throw new IOException("软件包记录缺少 ID");
+            String name = record.optString("originalName", source.getName());
+            if (name.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
+                io.execute(() -> {
+                    try {
+                        ArrayList<File> candidates = WindowsSoftwareStore.extractZipIntoContainer(this, containerId, source, id);
+                        ui.post(() -> choosePortableExecutable(candidates, containerId, name));
+                    } catch (Exception error) {
+                        ui.post(() -> toast("ZIP 解压失败：" + error.getMessage()));
+                    }
+                });
+                return;
+            }
+            File staged = WindowsSoftwareStore.copyIntoContainer(this, containerId, source, id);
+            Intent runtime = new Intent();
+            runtime.setClassName(this, "com.winlator.XServerDisplayActivity");
+            runtime.putExtra("container_id", containerId);
+            runtime.putExtra("exec_path", staged.getAbsolutePath());
+            startActivity(runtime);
+            if (softwareStatus != null) softwareStatus.setText("已在 Windows 兼容环境中启动：" + name
+                    + "。完成安装程序后，返回这里扫描已安装软件并创建手机桌面快捷图标。");
+        } catch (Exception error) {
+            toast("启动 Windows 软件失败：" + error.getMessage());
+        }
+    }
+
+    private void choosePortableExecutable(ArrayList<File> candidates, int containerId, String archiveName) {
+        if (candidates == null || candidates.isEmpty()) {
+            toast("压缩包内没有可运行的 EXE 文件");
+            return;
+        }
+        String[] rows = new String[candidates.size()];
+        for (int i = 0; i < candidates.size(); i++) {
+            File file = candidates.get(i);
+            rows[i] = file.getName() + "\n" + file.getParent();
+        }
+        new AlertDialog.Builder(this).setTitle("选择要运行的程序")
+                .setItems(rows, (d, which) -> {
+                    File executable = candidates.get(which);
+                    String defaultName = executable.getName();
+                    if (defaultName.toLowerCase(java.util.Locale.ROOT).endsWith(".exe"))
+                        defaultName = defaultName.substring(0, defaultName.length() - 4);
+                    addInstalledAppAndShortcut(containerId, defaultName, executable);
+                })
+                .setNegativeButton("取消", null).show();
+    }
+
+    private void scanInstalledApps() {
+        int containerId = runtimeContainerId();
+        if (!runtimeReady(containerId)) {
+            showRuntimeRequired();
+            return;
+        }
+        if (softwareStatus != null) softwareStatus.setText("正在扫描 Windows 容器中的 Program Files 和桌面程序…");
+        io.execute(() -> {
+            try {
+                ArrayList<File> files = WindowsSoftwareStore.scanInstalledExecutables(this, containerId);
+                ui.post(() -> {
+                    if (softwareStatus != null) softwareStatus.setText("扫描完成，发现 " + files.size() + " 个可选 EXE 程序。");
+                    if (files.isEmpty()) {
+                        toast("暂未发现已安装程序。请先在兼容环境中完成 Windows 软件安装。");
+                        return;
+                    }
+                    String[] rows = new String[files.size()];
+                    for (int i = 0; i < files.size(); i++) {
+                        File file = files.get(i);
+                        rows[i] = file.getName() + "\n" + file.getParent();
+                    }
+                    new AlertDialog.Builder(this).setTitle("选择要添加到手机桌面的软件")
+                            .setItems(rows, (dialog, which) -> {
+                                File executable = files.get(which);
+                                String name = executable.getName();
+                                if (name.toLowerCase(java.util.Locale.ROOT).endsWith(".exe"))
+                                    name = name.substring(0, name.length() - 4);
+                                addInstalledAppAndShortcut(containerId, name, executable);
+                            })
+                            .setNegativeButton("取消", null).show();
+                });
+            } catch (Exception error) {
+                ui.post(() -> toast("扫描失败：" + error.getMessage()));
+            }
+        });
+    }
+
+    private void addInstalledAppAndShortcut(int containerId, String defaultName, File executable) {
+        EditText appName = field("手机桌面显示名称", false);
+        appName.setText(defaultName);
+        new AlertDialog.Builder(this).setTitle("添加 Windows 软件")
+                .setMessage("所选程序：" + executable.getName()
+                        + "\n保存后会创建一个 Android 手机系统桌面快捷图标。点击图标时由未来科技启动该 Windows 程序。")
+                .setView(appName)
+                .setPositiveButton("保存并创建桌面图标", (d, w) -> {
+                    try {
+                        JSONObject record = WindowsSoftwareStore.addInstalledApp(
+                                this, containerId, appName.getText().toString().trim().isEmpty()
+                                        ? defaultName : appName.getText().toString().trim(), executable);
+                        pinAndroidShortcut(record);
+                    } catch (Exception error) {
+                        toast("保存软件失败：" + error.getMessage());
+                    }
+                })
+                .setNegativeButton("取消", null).show();
+    }
+
+    private void pinAndroidShortcut(JSONObject record) {
+        ShortcutManager manager = getSystemService(ShortcutManager.class);
+        if (manager == null || !manager.isRequestPinShortcutSupported()) {
+            toast("当前手机桌面不支持应用内创建快捷图标，请从未来科技的“已安装 Windows 软件”中启动。");
+            return;
+        }
+        String id = record.optString("id", "");
+        String name = record.optString("name", "Windows 软件");
+        String shortName = name.length() > 10 ? name.substring(0, 10) : name;
+        Intent launch = new Intent(this, MainActivity.class);
+        launch.setAction(ACTION_LAUNCH_WINDOWS_APP);
+        launch.putExtra(EXTRA_WINDOWS_APP_ID, id);
+        launch.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        ShortcutInfo shortcut = new ShortcutInfo.Builder(this, "ft-win-" + id)
+                .setShortLabel(shortName)
+                .setLongLabel(name)
+                .setIcon(Icon.createWithResource(this, R.drawable.computer_marketplace_icon))
+                .setIntent(launch)
+                .build();
+        if (manager.requestPinShortcut(shortcut, null))
+            toast("已向手机系统桌面发送快捷图标添加请求，请在系统提示中确认。");
+        else toast("手机桌面暂未接受快捷图标请求。");
+    }
+
+    private boolean handleInstalledAppShortcut(Intent intent) {
+        if (intent == null || !ACTION_LAUNCH_WINDOWS_APP.equals(intent.getAction())) return false;
+        String id = intent.getStringExtra(EXTRA_WINDOWS_APP_ID);
+        JSONObject record = WindowsSoftwareStore.findInstalledApp(this, id == null ? "" : id);
+        if (record == null) {
+            toast("找不到该 Windows 软件记录，请从未来科技重新添加快捷图标。");
+        } else {
+            launchInstalledWindowsApp(record);
+        }
+        return true;
+    }
+
+    private void launchInstalledWindowsApp(JSONObject record) {
+        int containerId = record.optInt("containerId", -1);
+        String path = record.optString("execPath", "");
+        if (!runtimeReady(containerId) || path.isEmpty() || !new File(path).isFile()) {
+            showRuntimeRequired();
+            return;
+        }
+        Intent runtime = new Intent();
+        runtime.setClassName(this, "com.winlator.XServerDisplayActivity");
+        runtime.putExtra("container_id", containerId);
+        runtime.putExtra("exec_path", path);
+        startActivity(runtime);
+    }
+
+    private void showInstalledWindowsApps() {
+        JSONArray apps = WindowsSoftwareStore.installedApps(this);
+        if (apps.length() == 0) {
+            new AlertDialog.Builder(this).setTitle("已安装 Windows 软件")
+                    .setMessage("列表还为空。完成 Windows 软件安装后，点击“扫描已安装软件 / 创建手机桌面图标”，选择程序即可添加。")
+                    .setPositiveButton("扫描软件", (d, w) -> scanInstalledApps()).show();
+            return;
+        }
+        String[] labels = new String[apps.length()];
+        JSONObject[] records = new JSONObject[apps.length()];
+        for (int i = 0; i < apps.length(); i++) {
+            records[i] = apps.optJSONObject(i);
+            labels[i] = records[i] == null ? "未知程序" : records[i].optString("name", "Windows 软件");
+        }
+        new AlertDialog.Builder(this).setTitle("已安装 Windows 软件")
+                .setItems(labels, (d, which) -> launchInstalledWindowsApp(records[which]))
+                .setPositiveButton("扫描更多软件", (d, w) -> scanInstalledApps())
                 .setNegativeButton("关闭", null).show();
     }
 
