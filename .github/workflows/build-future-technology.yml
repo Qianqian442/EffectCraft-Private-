@@ -26,7 +26,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Verify QQ, share-sheet and private file import regression checks
+      - name: Verify Windows software inbox, Ae project separation, registration and memory policy checks
         run: python tools/verify_future_tech_import.py
 
       - name: Set up Java 17
