@@ -1,49 +1,51 @@
-# Ae Mobile Compatibility Lab
+# 未来科技 (Future Technology)
 
-This repository is an isolated engineering workspace for researching how desktop Windows projects and plug-ins can be imported, inspected, adapted, or safely substituted on Android ARM64.
+This repository contains two separate Android applications and the account server for the Future Technology Windows-compatibility project.
 
-It is deliberately separate from the production APK build repository. Experimental compatibility work here must not silently change the shipping app or remove its existing features.
+- **未来科技** — user APK, Ae-style QQ/WeChat registration, photo-picker avatar, device capability report, QQ/file-share import entry, and app-private Windows compatibility runtime control surface.
+- **未来科技管理版** — administrator APK, online login, forced password change, account overview, whitelist, bans/unbans, and audit interface.
 
-## Goals
+## Security and password lifecycle
 
-- Separate project-file compatibility from executable plug-in compatibility.
-- Inspect binary formats and CPU targets without loading or executing untrusted binaries.
-- Define a portable effect ABI that can run on Android, desktop, and other supported targets.
-- Provide a route to rebuild plug-ins from source for Android ARM64.
-- Define explicit fallback behavior when a desktop-only plug-in cannot run on a phone.
-- Build a project-interchange representation that preserves compositions, layers, timing, keyframes, assets, and effect parameters.
-- Keep server/account validation outside this compatibility layer; it must not be bypassed or removed.
+- No administrator password is stored in this public repository, source code, APK, build output, or logs.
+- The server reads `ADMIN_BOOTSTRAP_PASSWORD` only from a private Cloudflare Worker secret. First bootstrap login forces password change.
+- Admin tokens are memory-only in the admin APK. Every app launch requires online login with the **current** server password. Password change revokes every admin session; a later download/reinstall therefore requires the new password.
+- Server password hashes use PBKDF2-HMAC-SHA-256 with a unique random salt and 600,000 iterations. Plaintext passwords are never persisted or logged.
+- User registration requires QQ or WeChat (either one is sufficient). New accounts remain pending until the administrator adds them to the whitelist.
+- Allowlist, ban, unban, and session revocation are enforced by the server and recorded in an audit log.
+- The runtime is app-private. It does not patch Android system partitions, weaken SELinux, require root, or bypass account verification.
 
-## Important limitation
+## Automated builds
 
-A Windows `.aex` / `.dll` plug-in is not made Android-compatible by renaming it, changing its extension, or changing a CPU label. Compatibility may require the original source code, a compatible host API, Android ARM64 binaries, replacement implementations, or a controlled emulation environment. Even CPU emulation alone does not provide the Windows APIs or the After Effects host ABI.
+`.github/workflows/build-future-technology.yml` builds two separate APKs:
+- `Future-Technology.apk`
+- `Future-Technology-Admin.apk`
 
-## Current status
+The workflow verifies ZIP integrity, application package IDs, APK signatures, and uploads both as a GitHub Actions artifact. These are development candidates until the account server is deployed and the Windows runtime has been integrated and device-tested.
 
-The initial milestone is a safe, read-only plug-in binary inspector plus format and architecture specifications. This does **not** claim universal Windows plug-in support and does not yet execute desktop binaries.
+The account Worker and D1 schema are checked by `.github/workflows/validate-future-technology-server.yml`.
 
-## Layout
+## Account-server deployment
 
-- `docs/compatibility-architecture.md` — layered compatibility strategy.
-- `docs/project-interchange.md` — common project representation and import rules.
-- `docs/plugin-compatibility.md` — plug-in paths, ABI, and fallback behavior.
-- `docs/open-source-research.md` — candidate open-source compatibility projects and evaluation order.
-- `docs/why-desktop-software-does-not-run-on-android.md` — CPU, ABI, OS, graphics, host API and sandbox barriers.
-- `docs/integration-architecture-v2.md` — Winlator-based isolated runtime and plug-in integration design.
-- `compatibility/sources.lock.json` — upstream repositories pinned to exact commits with license and integration status.
-- `tools/validate_sources.py` — source pin/license policy validator.
-- `tools/android-device-probe.sh` — read-only CPU/GPU/Vulkan/Android capability report (run with `sh tools/android-device-probe.sh`).
-- `schemas/project-ir.schema.json` — versioned, loss-preserving project interchange contract.
-- `tools/inspect_plugin.py` — read-only PE/ELF/WASM/Mach-O/ZIP classifier.
-- `tests/` — synthetic header tests; no proprietary plug-ins required.
-- `.github/workflows/compatibility-lab.yml` — automated checks for the inspector and schema.
+Cloudflare deployment is separate from APK compilation. It requires:
+1. A Cloudflare API token with Workers and D1 permissions.
+2. A D1 database named `future-tech-accounts`; copy its database ID.
+3. These GitHub Actions secrets:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `FUTURE_TECH_D1_DATABASE_ID`
+   - `FUTURE_TECH_ADMIN_BOOTSTRAP_PASSWORD` (use a fresh random password; do not reuse credentials exposed in chat)
+4. GitHub Actions variable `FUTURE_TECH_WORKER_URL` containing the deployed Worker URL, e.g. `https://future-tech-account-api.<your-cloudflare-subdomain>.workers.dev`.
+5. Run the manual workflow **Deploy 未来科技 account server**.
 
-## Run the tests
+The default first administrator name is `admin`. After first login, the server requires the bootstrap password to be changed. The admin APK deliberately asks for the current password on each launch.
 
-```bash
-python -m unittest discover -s tests -v
-python tools/validate_sources.py
-python tools/inspect_plugin.py path/to/plugin.aex
-```
+Set GitHub Actions variable `FUTURE_TECH_API_BASE` to the same HTTPS Worker URL and rebuild both APKs after server deployment.
 
-The inspector only reads headers. It never loads or executes the file. CI checks the parser, tests, schema syntax, and read-only behavior. Passing these checks is not proof that a commercial plug-in or full desktop project works on Android.
+## Current limitations
+
+- The user/admin Android project scaffolds and API source are present, but Cloudflare D1/Worker deployment has not been performed.
+- Wine, Box64/Box86, the Linux root filesystem, graphics backends (Mesa/Turnip, DXVK/VKD3D), and a functional Windows process/session manager have not yet been integrated into the APK. The runtime switch currently reports this honestly and will not execute unverified binaries.
+- The user-supplied icon image is not available as a materialized file in the active repository workspace yet; the app icon remains a replaceable placeholder until that image is added.
+
+A normal Android app cannot silently implant a system-signed framework into protected Android system partitions. Future Technology uses an app-private compatibility container that can be enabled/disabled within Android's sandbox.
