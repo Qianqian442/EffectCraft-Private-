@@ -122,3 +122,22 @@ The Windows compatibility process is not an identity provider and may not bypass
 10. Attempt selected .aex plug-ins only where licensing permits and where a meaningful test host exists.
 
 Every result must record device model, SoC/GPU, Android API, driver, source revision, licence, test fixture, and observed limitations.
+
+
+## Ae integration priority (user acceptance requirement)
+
+After the Windows compatibility runtime passes independent Android device tests, the **first product integration target is Ae (EffectCraft)**, not the standalone Future Technology app.
+
+Integration order:
+1. Keep the runtime/compatibility engine in a separable module with a narrow API. Do not transplant untested emulator binaries into Ae.
+2. Integrate the device capability detector and safe runtime manager into an Ae development branch.
+3. Test desktop AE project fixtures through Ae's existing project importer, including QQ `ACTION_VIEW` / `ACTION_SEND` and Android content URI flows.
+4. Verify compositions, layers, timing, keyframes, effects, media references and unknown data are preserved. Then test preview playback and memory stability.
+5. For every computer plug-in fixture, report PE architecture, imports/dependencies, Windows API requirements and exact Adobe host API requirements before attempting execution.
+6. Test plug-ins in this order: portable/WASM effect, source-rebuilt Android ARM64 effect, OpenFX-hosted effect, then isolated Windows .aex host research where legally licensed.
+7. Verify an actual rendered effect, not merely a successfully opened file or visible plug-in name. Use render comparisons or documented manual parity review.
+8. Run Ae regressions: automatic project import on launch, QQ external-file import, timeline editing, playback, video export/no-crash, server verification/login, and existing effects/plugins.
+
+The standalone Future Technology APK may remain a runtime manager/proof-of-concept, but a successful APK build is not the acceptance gate for Ae compatibility. The gate is real desktop-project import and playback plus named plug-in execution tests on Android devices.
+
+No Ae production release may claim desktop compatibility until the relevant fixtures and device tests pass. Existing Ae functions and server verification must remain intact.
