@@ -27,8 +27,11 @@ The initial milestone is a safe, read-only plug-in binary inspector plus format 
 - `docs/compatibility-architecture.md` — layered compatibility strategy.
 - `docs/project-interchange.md` — common project representation and import rules.
 - `docs/plugin-compatibility.md` — plug-in paths, ABI, and fallback behavior.
-- `tools/inspect_plugin.py` — read-only PE/ELF/WASM classifier.
+- `docs/open-source-research.md` — candidate open-source compatibility projects and evaluation order.
+- `schemas/project-ir.schema.json` — versioned, loss-preserving project interchange contract.
+- `tools/inspect_plugin.py` — read-only PE/ELF/WASM/Mach-O/ZIP classifier.
 - `tests/` — synthetic header tests; no proprietary plug-ins required.
+- `.github/workflows/compatibility-lab.yml` — automated checks for the inspector and schema.
 
 ## Run the tests
 
@@ -37,4 +40,4 @@ python -m unittest discover -s tests -v
 python tools/inspect_plugin.py path/to/plugin.aex
 ```
 
-The inspector only reads headers. It never loads or executes the file.
+The inspector only reads headers. It never loads or executes the file. CI checks the parser, tests, schema syntax, and read-only behavior. Passing these checks is not proof that a commercial plug-in or full desktop project works on Android.
